@@ -1,7 +1,7 @@
 # Backlog de tarefas e sprints da Intranet FCECON
 
 **Data:** 14 de outubro de 2026  
-**Status:** Sprint 1 implementada e verificada tecnicamente; T-01 a T-05 concluídas no escopo local, com pendências externas da TI registradas no inventário. T-06 a T-09 implementadas e verificadas; T-10 em revisão aguardando TI. T-11 a T-30 em **Backlog**.  
+**Status:** Sprint 1 implementada e verificada tecnicamente; T-01 a T-05 concluídas no escopo local, com pendências externas da TI registradas no inventário. T-06 a T-09 implementadas e verificadas; T-10 em revisão aguardando TI. T-11 a T-14 concluídas tecnicamente; T-15 em revisão aguardando TI/T-10. T-16 a T-30 em **Backlog**.  
 **Equipe de execução:** um desenvolvedor com apoio do Codex.  
 **Referências:** [arquitetura e requisitos](arquitetura.md) e [modelagem dos fluxos](modelagem.md).
 
@@ -177,7 +177,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-11 — Implementar gestão de usuários
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 3](sprint-3.md).  
 **Dependências:** T-07, T-05.
 
 **Descrição:** cadastro, listagem e exclusão por admin; login único, perfis válidos, bloqueio de autoexclusão e preservação de autoria/histórico após excluir outra conta. Cada ação administrativa valida permissões no servidor.
@@ -189,7 +189,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-12 — Implementar pastas e renomeação
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 3](sprint-3.md).  
 **Dependências:** T-08, T-05.
 
 **Descrição:** criar pastas lógicas e renomear arquivos/pastas preservando IDs, chaves e extensão. Validar nomes, colisões, parent ativo e ausência de ciclos; transacionar metadados e auditoria.
@@ -201,7 +201,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-13 — Implementar upload múltiplo consistente
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** G; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** G; **status:** Concluída tecnicamente; evidência em [Sprint 3](sprint-3.md).  
 **Dependências:** T-12, T-09.
 
 **Descrição:** multipart, staging privado, validações de arquivo, reservas concorrentes de nomes e confirmação por arquivo com autoria/auditoria. Publicar apenas após conclusão; compensar falhas e preservar pendência quando o resultado do commit estiver ambíguo.
@@ -213,7 +213,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-14 — Completar interface administrativa
 
 **Responsável:** Dev + Codex; TI avalia usabilidade.  
-**Prioridade:** P1; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P1; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 3](sprint-3.md).  
 **Dependências:** T-11, T-12, T-13.
 
 **Descrição:** integrar formulários, modais, progresso de upload, mensagens em português, resultados parciais, tema persistente e adaptação a telas menores. Diferenciar transmissão dos bytes de processamento concluído; usar assets locais.
@@ -225,7 +225,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-15 — Implementar consulta da auditoria e validar administração
 
 **Responsável:** Dev + Codex; TI valida o incremento.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Em revisão — implementação e validação técnica concluídas; aceite da TI/T-10 pendente.  
 **Dependências:** T-14, T-05, T-10.
 
 **Descrição:** disponibilizar os 50 eventos mais recentes para admin, revisar registros de login, senha, usuários, pastas, upload e leitura. Validar administração integrada e proteção das rotas já implementadas; completar auditoria de lixeira/ZIP quando existirem.

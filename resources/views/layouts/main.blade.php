@@ -13,6 +13,8 @@
         <button type="button" class="secondary theme-toggle" aria-label="Alternar tema">Tema escuro</button>
         @auth
             <span class="account">{{ auth()->user()->username }} · {{ auth()->user()->role === 'admin' ? 'Administrador' : 'Usuário' }}</span>
+            <a href="{{ route('documents.index') }}">Documentos</a>
+            @can('admin')<a href="{{ route('users.index') }}">Usuários</a><a href="{{ route('audit.index') }}">Auditoria</a>@endcan
             <a href="{{ route('password') }}">Alterar senha</a>
             <form method="post" action="{{ route('logout') }}">@csrf<button class="secondary">Sair</button></form>
         @endauth

@@ -1,7 +1,7 @@
 # Modelagem dos fluxos da Intranet FCECON
 
 **Data:** 14 de outubro de 2026  
-**Status:** modelagem da solução completa; fundação, Docker local e esquema PostgreSQL implementados. Acesso e consulta implementados na [Sprint 2](sprint-2.md); administração, ciclo documental e produção seguem as próximas sprints.  
+**Status:** modelagem da solução completa; fundação, Docker local e esquema PostgreSQL implementados. Acesso e consulta implementados na [Sprint 2](sprint-2.md); administração implementada na [Sprint 3](sprint-3.md); ciclo documental e produção seguem as próximas sprints.  
 **Base:** [arquitetura, regras, requisitos e critérios de aceitação](arquitetura.md).
 
 ## 1. Objetivo e leitura dos modelos
@@ -552,3 +552,7 @@ Na revisão documental, conferir:
 - Compatibilidade de migrations/dados avaliada no retorno, com preservação das gravações recentes.
 
 Os critérios CA-01 a CA-19 especificam a solução completa. As evidências da [Sprint 1](sprint-1.md) e [Sprint 2](sprint-2.md) registram a execução técnica local e a cobertura do incremento; os diagramas sozinhos não comprovam funcionalidades futuras ou migração.
+
+## Correspondência com a implementação da Sprint 3
+
+M-02/M-03 agora têm rotas administrativas, autorização/validação no servidor, staging, reserva de nome sob trava e confirmação por arquivo. Metadados não confirmados permanecem invisíveis às demais conexões. Manifestos privados sustentam a pendência conservadora descrita em M-07 após interrupção/commit ambíguo; a reconciliação automática continua futura. A interface informa transmissão separadamente do resultado e lista cada sucesso, recusa ou pendência. O GET de auditoria é administrativo e limitado a 50 eventos. Veja [evidências e limites](sprint-3.md), sem antecipar ZIP/lixeira ou produção.

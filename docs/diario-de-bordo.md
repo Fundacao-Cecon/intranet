@@ -1,6 +1,6 @@
 # Diário de bordo — Intranet FCECON
 
-Cada entrada preserva o estado da entrega naquele momento. O incremento atual de acesso e consulta está descrito na [Sprint 2](sprint-2.md).
+Cada entrada preserva o estado da entrega naquele momento. Os incrementos de acesso/consulta e administração estão descritos na [Sprint 2](sprint-2.md) e [Sprint 3](sprint-3.md).
 
 ## 14/10/2026 — Sprint 1: Fundação
 
@@ -76,3 +76,24 @@ Nas próximas sprints, acrescentar entradas datadas com objetivo, decisões, dif
 **O que já pode ser visto:** http://127.0.0.1:8080 abre a tela de login. Credenciais de demonstração deste computador estão em artifacts/sprint-2/demo-access.json; para preparar um ambiente novo, usar ./scripts/dev.ps1 demo depois da inicialização. Login não usa contas do SQLite legado.
 
 **Pendências:** TI acompanhar o [roteiro](sprint-2.md) e registrar observações/aceite de T-10. Administração, upload e manutenção de pastas seguem T-11 a T-15; ZIP e lixeira permanecem nas tarefas posteriores. Migração e implantação na VM não foram realizadas.
+
+## 14/10/2026 — Sprint 3: Administração
+
+**Objetivo:** permitir administração de usuários, pastas e publicação do acervo, com rastreabilidade e tratamento de falhas. T-11 a T-14 concluídas tecnicamente; T-15 implementada e em revisão, com aceite da TI/T-10 pendente.
+
+| Frente | Resultado |
+|---|---|
+| Usuários | Cadastro/listagem/exclusão por admin, senha confirmada, login único e autoexclusão bloqueada; histórico preservado |
+| Pastas e nomes | Pastas lógicas, extensão preservada na renomeação, IDs/chaves/filhos estáveis e colisões recusadas |
+| Upload | Staging privado, validação por arquivo, sufixos concorrentes, publicação sem sobrescrever e resultado parcial |
+| Recuperação | Manifesto privado, compensação de falhas conhecidas e preservação em commit ambíguo; inspeção somente leitura |
+| Interface | Formulários administrativos, confirmação de exclusão, progresso de transmissão separado do resultado, tema e tela menor |
+| Auditoria | 50 eventos mais recentes acessíveis apenas a admin; senhas e conteúdo fora dos registros |
+
+**Decisões e ajustes:** trava documental global obtida antes de locks de linhas, também na exclusão de usuário que altera FKs documentais. Hard link atômico no mesmo volume evita substituir destino físico. Manifesto precede publicação/commit. A regra de nomes foi alinhada a traços Unicode e parênteses dos sufixos, preservando nomes fictícios já existentes. Limites locais definidos em 10 arquivos/20 MiB por arquivo/64 MiB por lote, ainda sujeitos à TI. A barra de progresso ganhou texto explícito sobre transmissão, para não sugerir sucesso de publicação ao atingir 100%.
+
+**Verificação:** suíte integrada, concorrência em conexões PostgreSQL reais, erro após commit real, invisibilidade antes do commit e falhas de disco/auditoria/limpeza. No Edge: cadastro/login/exclusão de conta fictícia e revogação da sessão, pastas, renomeação, upload válido/parcial/inválido, colisão, CSRF, recusa de user e auditoria. Nenhum erro JavaScript ou requisição externa. Desktop/tela menor conferidos, imagem PHP reconstruída e assets compilados. Contagens finais e detalhes estão em [Sprint 3](sprint-3.md).
+
+**Demonstração:** entrar como demo.admin em http://127.0.0.1:8080/login com as credenciais locais existentes. A pasta de demonstração da Sprint 3 contém apenas arquivos fictícios. O usuário temporário criado para o roteiro foi excluído ao terminar; contas originais de demonstração foram preservadas.
+
+**Pendências:** TI registrar avaliação/aceite de T-10 e T-15. ZIP, lixeira e reconciliação automática seguem T-16 a T-20. Migração e implantação continuam futuras. Não remover volumes ou apagar bytes para resolver um upload pendente.

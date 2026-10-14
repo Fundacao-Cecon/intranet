@@ -46,3 +46,7 @@ Hashes SHA-256 individuais foram registrados antes da integração em `artifacts
 | Cópia autorizada do acervo e SQLite de produção | Não disponibilizada | TI | Importação e comparação com ambiente real |
 
 T-01 tem o levantamento local e as lacunas registradas. Os parâmetros externos continuam pendentes e devem ser confirmados antes das tarefas afetadas; não são substituídos por valores fictícios. Dados locais de teste são sintéticos e não tornam a migração homologada.
+
+## Parâmetros locais introduzidos na Sprint 3
+
+Referência de desenvolvimento: 10 arquivos por lote, 20 MiB por arquivo e 64 MiB de bytes por lote. PHP/Nginx aceitam corpo multipart até 80 MiB; PHP recebe até 100 arquivos para que o limite menor da aplicação possa recusar excesso sem sucesso silencioso. São valores locais implementados, sem homologação de capacidade/limites de produção pela TI. Veja [Sprint 3](sprint-3.md).

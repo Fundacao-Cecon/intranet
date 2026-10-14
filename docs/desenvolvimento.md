@@ -18,7 +18,9 @@ Na raiz, execute no PowerShell:
 
 O script encontra o Docker instalado por usuário ou em Program Files. `prepare` gera APP_KEY e senhas aleatórias locais, usando as imagens fixadas em `docker/images.env`; não sobrescreve `.env`. Composer usa `composer.lock` e npm usa `package-lock.json`. Alterações de dependências devem atualizar e revisar esses arquivos.
 
-A aplicação está em http://127.0.0.1:8080, com login, troca de senha e consulta privada. `/up` retorna 200 quando banco e storage estão disponíveis e 500 em falha. Debug está desativado. Administração e ZIP seguem as próximas sprints.
+A aplicação está em http://127.0.0.1:8080, com login, troca de senha, consulta privada e administração de usuários/pastas/uploads/auditoria. `/up` retorna 200 quando banco e storage estão disponíveis e 500 em falha. Debug está desativado. ZIP e lixeira seguem as próximas sprints.
+
+A Sprint 3 acrescenta limites PHP/Nginx: em checkouts atualizados, executar `./scripts/dev.ps1 build`, `./scripts/dev.ps1 assets` e `./scripts/dev.ps1 up` para recriar a aplicação com a imagem nova. Não há migrations novas. Limites, consistência do upload e comando de inspeção somente leitura estão em [Sprint 3](sprint-3.md). Preservar volumes, `.env` e APP_KEY.
 
 Para demonstração opt-in em um banco local novo, execute `./scripts/dev.ps1 demo` depois de `up`. O comando usa `www-data`, gera senhas aleatórias e salva credenciais em `artifacts/sprint-2/demo-access.json`. Não sobrescreve contas existentes e não importa usuários/documentos do legado. O roteiro e as pendências do aceite estão em [Sprint 2](sprint-2.md).
 

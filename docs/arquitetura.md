@@ -2,7 +2,7 @@
 
 **Data:** 14 de outubro de 2026  
 **Público:** equipe de TI responsável pelo desenvolvimento, implantação e manutenção.  
-**Status:** arquitetura da solução completa; fundação Laravel/Docker e esquema PostgreSQL implementados na Sprint 1; acesso e consulta implementados na Sprint 2, aguardando aceite da TI. Migração do legado e implantação pendentes.
+**Status:** arquitetura da solução completa; fundação Laravel/Docker e esquema PostgreSQL implementados na Sprint 1; acesso/consulta e administração implementados nas Sprints 2 e 3, aguardando aceite da TI. Migração do legado e implantação pendentes.
 
 ## 1. Objetivo e base de análise
 
@@ -479,3 +479,7 @@ Laravel está na raiz e Nginx serve somente `public`. PHP 8.4, PostgreSQL 18.6 e
 ## Incremento de acesso e consulta — Sprint 2
 
 Rotas internas de sessão, senha e leitura estão implementadas. Policies verificam perfil e cadeia de ancestrais; senha atual, CSRF obrigatório e limitação de tentativas protegem os envios. Streams usam chaves privadas, MIME detectado e auditoria de início, com suporte a ranges e cabeçalhos seguros. Interface local inclui filtro de pasta, breadcrumbs e tema persistente. As ações administrativas futuras reutilizarão as policies; seus endpoints ainda não estão publicados. Veja [implementação, testes e roteiro de aceite](sprint-2.md).
+
+## Incremento administrativo — Sprint 3
+
+Gestão de usuários, pastas, renomeação, upload múltiplo e consulta de auditoria estão disponíveis para admin. Reservas de nomes usam trava transacional na raiz/pastas e constraint de unicidade. Upload mantém staging e manifesto privados, com confirmação por arquivo e preservação conservadora de bytes quando o commit é ambíguo. Publicação por hard link exige staging e documentos no mesmo volume; a reconciliação automática permanece em T-20. Novos limites PHP/Nginx exigem rebuild/recriação preservando volumes e APP_KEY. Consulte [contratos, falhas e evidências](sprint-3.md); T-10/T-15 ainda aguardam a TI.

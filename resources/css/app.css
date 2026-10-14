@@ -25,6 +25,19 @@
 }
 
 :root { color-scheme: light; --bg:#f0f5f4; --surface:#fff; --ink:#163b36; --muted:#57746d; --border:#d1e1dc; --accent:#17604f; }
+select { padding:11px; border:1px solid var(--border); border-radius:8px; color:var(--ink); background:var(--surface); }
+.admin-tools { display:flex; gap:24px; flex-wrap:wrap; border-bottom:1px solid var(--border); margin-bottom:24px; padding-bottom:20px; }
+summary { cursor:pointer; color:var(--accent); font-weight:600; padding:10px 0; }
+details[open] { min-width:min(100%,320px); }
+.rename { margin-top:10px; min-width:180px; }
+.rename .stack { padding:8px 0; }
+.account-create { max-width:520px; }
+.users-list { margin-top:24px; }
+progress { width:100%; height:20px; accent-color:var(--accent); }
+button:disabled { opacity:.55; cursor:wait; }
+#upload-state[data-result="error"] { color:#b33131; }
+:root[data-theme="dark"] #upload-state[data-result="error"] { color:#ffb5b5; }
+@media(max-width:700px) { .admin-tools { flex-direction:column; } details[open] { min-width:0; } }
 :root[data-theme="dark"] { color-scheme:dark; --bg:#111f1c; --surface:#1b302b; --ink:#e5f1ed; --muted:#b1c7bf; --border:#38584c; --accent:#83d5b7; }
 body { background:var(--bg); color:var(--ink); }
 a { color:var(--accent); text-underline-offset:3px; }

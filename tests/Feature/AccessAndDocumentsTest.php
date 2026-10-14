@@ -310,7 +310,7 @@ class AccessAndDocumentsTest extends TestCase
         $hash = $user->password_hash;
         $this->signedIn($user)->get('/senha?password=invalid')->assertOk();
         $this->get('/logout')->assertStatus(405);
-        $this->get('/documentos/upload')->assertNotFound();
+        $this->get('/documentos/upload')->assertStatus(405);
         $this->assertSame($hash, $user->fresh()->password_hash);
         $this->assertAuthenticatedAs($user);
         $this->assertSame(0, Item::count());

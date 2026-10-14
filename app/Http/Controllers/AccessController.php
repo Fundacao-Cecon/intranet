@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Rules\NewPassword;
 use App\Services\AccessService;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
@@ -33,11 +34,7 @@ class AccessController extends Controller
     {
         $data = $request->validate([
             'username' => 'required|string|max:255', 'current_password' => 'required|string|max:1024',
-            'password' => ['required', 'string', 'min:12', 'max:72', 'confirmed', function ($attribute, $value, $fail) {
-                if (is_string($value) && (strlen($value) > 72 || str_contains($value, "\0"))) {
-                    $fail('A nova senha deve ter no máximo 72 bytes e não pode conter caracteres nulos.');
-                }
-            }],
+            'password' => ['required', 'string', 'confirmed', new NewPassword],
         ], [
             'required' => 'Preencha :attribute.', 'password.min' => 'A nova senha deve ter pelo menos 12 caracteres.',
             'password.max' => 'A nova senha deve ter no máximo 72 caracteres.', 'password.confirmed' => 'A confirmação da nova senha não confere.',

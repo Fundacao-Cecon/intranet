@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git unzip libpq
     && rm -rf /var/lib/apt/lists/*
 COPY --from=composer_binary /usr/bin/composer /usr/local/bin/composer
 WORKDIR /var/www/html
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/intranet-uploads.ini
 COPY docker/php/entrypoint.sh /usr/local/bin/intranet-entrypoint
 RUN chmod +x /usr/local/bin/intranet-entrypoint
 ENTRYPOINT ["intranet-entrypoint"]
