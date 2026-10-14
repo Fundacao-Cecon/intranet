@@ -1,4 +1,4 @@
-param([ValidateSet('prepare','build','install','assets','up','migrate','test','check','down','logs')][string]$Action = 'check')
+param([ValidateSet('prepare','build','install','assets','up','migrate','test','check','down','logs','demo')][string]$Action = 'check')
 $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
@@ -37,6 +37,15 @@ switch ($Action) {
     'migrate' { Invoke-Compose run --rm app php artisan migrate --database=pgsql_migrate --force }
     'up' { Invoke-Compose up -d --wait web }
     'test' { Invoke-Compose run --rm test }
+    'demo' {
+        $payload = Invoke-Compose exec --user www-data -T app php artisan intranet:demo
+        $json = ($payload -join "`n")
+        $parsed = $json | ConvertFrom-Json
+        if ($parsed.accounts.Count -ne 2) { throw 'Resposta de demonstração inválida.' }
+        New-Item -ItemType Directory -Force 'artifacts/sprint-2' | Out-Null
+        [IO.File]::WriteAllText((Join-Path (Get-Location) 'artifacts/sprint-2/demo-access.json'), $json + "`n", (New-Object Text.UTF8Encoding $false))
+        Write-Output 'Credenciais locais em artifacts/sprint-2/demo-access.json. Não versionar nem distribuir esse arquivo.'
+    }
     'check' { Invoke-Compose config --quiet; Invoke-Compose ps }
     'down' { Invoke-Compose down }
     'logs' { Invoke-Compose logs --tail 100 app web }

@@ -1,6 +1,6 @@
 # Intranet FCECON
 
-Portal institucional em evolução para Laravel 13, PHP 8.4, PostgreSQL e Docker. A Sprint 1 entrega a fundação técnica; login, consulta e administração serão implementados nas próximas sprints. O legado permanece intacto.
+Portal institucional em evolução para Laravel 13, PHP 8.4, PostgreSQL e Docker. Fundação, login, troca de senha, navegação, visualização e download privados estão implementados localmente. A Sprint 2 aguarda avaliação da TI; administração será implementada nas próximas sprints. O legado permanece intacto.
 
 ## Executar no Windows
 
@@ -16,7 +16,7 @@ Inicie Docker Desktop com WSL2 e containers Linux. No PowerShell, na raiz do rep
 ./scripts/dev.ps1 test
 ```
 
-Abra http://127.0.0.1:8080. A página inicial apresenta a fundação; `/up` verifica PostgreSQL e storage privado. As migrations são explícitas e não rodam no entrypoint.
+Abra http://127.0.0.1:8080 para entrar. `/up` verifica PostgreSQL e storage privado. As migrations são explícitas e não rodam no entrypoint. Para criar contas e acervo fictícios em um ambiente novo, execute `./scripts/dev.ps1 demo`; as senhas aleatórias ficam em `artifacts/sprint-2/demo-access.json`, ignorado pelo Git. O comando não sobrescreve contas existentes.
 
 `prepare` gera configuração local e segredos apenas se `.env` não existir. Preserve esse arquivo e a APP_KEY nas atualizações. `down` remove containers e rede, preservando volumes; não use `down -v` para atualizar.
 
@@ -36,6 +36,7 @@ Somente `web` publica a porta 8080, vinculada ao loopback. `app` e `db` usam red
 |---|---|
 | [Desenvolvimento](docs/desenvolvimento.md) | Comandos e configuração local |
 | [Sprint 1](docs/sprint-1.md) | Entrega, esquema físico e verificação |
+| [Sprint 2](docs/sprint-2.md) | Acesso, consulta e roteiro de avaliação da TI |
 | [Diário de bordo](docs/diario-de-bordo.md) | Execução da sprint, decisões e próximos passos |
 | [Inventário](docs/inventario.md) | Ambiente confirmado e pendências da TI |
 | [Arquitetura](docs/arquitetura.md) | Regras, requisitos e decisões |

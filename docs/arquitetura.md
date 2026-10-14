@@ -2,19 +2,19 @@
 
 **Data:** 14 de outubro de 2026  
 **Público:** equipe de TI responsável pelo desenvolvimento, implantação e manutenção.  
-**Status:** arquitetura da solução completa; fundação Laravel/Docker e esquema PostgreSQL implementados na Sprint 1. Migração do legado e implantação pendentes.
+**Status:** arquitetura da solução completa; fundação Laravel/Docker e esquema PostgreSQL implementados na Sprint 1; acesso e consulta implementados na Sprint 2, aguardando aceite da TI. Migração do legado e implantação pendentes.
 
 ## 1. Objetivo e base de análise
 
 Este documento descreve o sistema existente e define sua evolução para um monólito modular em **Laravel + PostgreSQL + Docker**, com armazenamento privado de documentos em volumes persistentes de uma VM Linux no servidor principal. As funcionalidades atuais e os perfis `user` e `admin` serão preservados.
 
-A [modelagem dos fluxos](modelagem.md) complementa esta arquitetura com nove diagramas de usuário, API interna, banco e desenvolvimento/implantação. Os fluxos funcionais descrevem a solução completa. A fundação local já foi implementada; consulte [Sprint 1](sprint-1.md) para limites e evidências.
+A [modelagem dos fluxos](modelagem.md) complementa esta arquitetura com nove diagramas de usuário, API interna, banco e desenvolvimento/implantação. Os fluxos funcionais descrevem a solução completa. Fundação e consulta locais estão implementadas; consulte [Sprint 1](sprint-1.md) e [Sprint 2](sprint-2.md) para limites e evidências.
 
 O [planejamento de tarefas e sprints](planejamento.md) organiza a implementação em 30 tarefas, seis ciclos de duas semanas e critérios de aceite vinculados aos requisitos deste documento. O primeiro marco é a demonstração de acesso e consulta ao final da Sprint 2.
 
 A fonte é o [`index.php` no commit `72cc6bb`](https://github.com/Fundacao-Cecon/intranet/blob/72cc6bb44f21d6a99b817128581c3c820d085783/index.php). As definições das tabelas foram lidas no código; o conteúdo do banco SQLite e dos documentos institucionais não foi inspecionado. Não foram localizados documentos formais de problemática, solução, regras de negócio ou requisitos nas branches examinadas.
 
-As informações são classificadas como **observadas** quando aparecem no código, **inferidas** quando descrevem a finalidade presumida do sistema e **propostas** quando definem a arquitetura futura. Inferências não substituem validação institucional. Esta entrega é documental: não altera a aplicação nem executa a migração.
+As informações são classificadas como **observadas** quando aparecem no código, **inferidas** quando descrevem a finalidade presumida do sistema e **propostas** quando definem a arquitetura futura. Inferências não substituem validação institucional. A análise inicial foi documental; a implementação incremental está registrada nas evidências das sprints. A migração do legado ainda não foi executada.
 
 ## 2. Problemática e solução
 
@@ -427,7 +427,7 @@ Monitorar disponibilidade HTTP, conexão com PostgreSQL, espaço livre, falhas d
 
 ## 10. Cenários de teste e critérios de aceitação
 
-Os cenários abaixo são especificações para a implementação futura; não representam testes da aplicação executados nesta entrega documental. Testes de concorrência, constraints e migração usarão PostgreSQL real em ambiente isolado, além de storage temporário para testes de arquivo.
+Os cenários abaixo especificam o comportamento da solução completa. As evidências de cada sprint registram os testes executados e a cobertura parcial ou completa do incremento. Testes de concorrência, constraints e migração usarão PostgreSQL real em ambiente isolado, além de storage temporário para testes de arquivo.
 
 | ID | Cenário e resultado esperado |
 |---|---|
@@ -475,3 +475,7 @@ A arquitetura futura só será considerada implantada após desenvolvimento, mig
 ## Fundação implementada — Sprint 1
 
 Laravel está na raiz e Nginx serve somente `public`. PHP 8.4, PostgreSQL 18.6 e imagens oficiais fixadas por digest compõem o ambiente local. Compose exige o complemento de desenvolvimento explícito; testes usam rede, banco e storage separados. Runtime e migrations usam papéis distintos. A hierarquia usa IDs bigint identity, unicidade ativa incluindo a raiz e trigger contra ciclos/pais arquivo; snapshots mantêm história após exclusão de referências. Auditoria e healthcheck estão testados. Scheduler permanece opcional até T-20. Consulte [modelo físico e evidências](sprint-1.md), [comandos](desenvolvimento.md) e [pendências externas](inventario.md).
+
+## Incremento de acesso e consulta — Sprint 2
+
+Rotas internas de sessão, senha e leitura estão implementadas. Policies verificam perfil e cadeia de ancestrais; senha atual, CSRF obrigatório e limitação de tentativas protegem os envios. Streams usam chaves privadas, MIME detectado e auditoria de início, com suporte a ranges e cabeçalhos seguros. Interface local inclui filtro de pasta, breadcrumbs e tema persistente. As ações administrativas futuras reutilizarão as policies; seus endpoints ainda não estão publicados. Veja [implementação, testes e roteiro de aceite](sprint-2.md).

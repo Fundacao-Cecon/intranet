@@ -1,5 +1,7 @@
 # Diário de bordo — Intranet FCECON
 
+Cada entrada preserva o estado da entrega naquele momento. O incremento atual de acesso e consulta está descrito na [Sprint 2](sprint-2.md).
+
 ## 14/10/2026 — Sprint 1: Fundação
 
 **Objetivo:** preparar a base Laravel, PostgreSQL e Docker para iniciar os casos de uso da intranet. Trabalho realizado no computador local, com Docker Desktop/WSL2 e containers Linux. A integração da sprint foi enviada para `dev` no commit `649f314`.
@@ -53,3 +55,24 @@ O endereço funciona neste computador; acesso pela rede e publicação na VM ser
 A Sprint 2 implementará login/logout/troca de senha, autorização por perfil, navegação, visualização e download, conforme T-06 a T-10 do [planejamento](planejamento.md). A TI precisa fornecer os parâmetros externos listados no [inventário](inventario.md) antes das tarefas de implantação e corte.
 
 Nas próximas sprints, acrescentar entradas datadas com objetivo, decisões, dificuldades resolvidas, testes executados, commit de integração e pendências. Registrar apenas resultados comprovados, sem transformar previsões em entregas.
+
+## 14/10/2026 — Sprint 2: Acesso e consulta
+
+**Objetivo:** entregar a primeira consulta autenticada local, mantendo o legado intacto. T-06 a T-09 implementadas e verificadas; T-10 em revisão, aguardando a demonstração acompanhada e o aceite da TI.
+
+| Frente | Resultado |
+|---|---|
+| Acesso | Login, último acesso, sessão regenerada, logout e troca de senha pública/autenticada com senha atual |
+| Proteção | CSRF obrigatório, rate limit e sessões antigas encerradas após mudança da credencial |
+| Permissões | Policies para consulta e ações futuras de admin; bloqueio de autoexclusão preparado |
+| Navegação | Raiz/pastas por ID, breadcrumbs, filtro de nomes, pastas primeiro e metadados disponíveis |
+| Leitura | Visualização/download privados, MIME verificado, miniaturas raster autenticadas e ranges |
+| Demonstração | Dois perfis e acervo fictício com credenciais aleatórias em arquivo local ignorado |
+
+**Ajustes encontrados e resolvidos:** a demonstração criada por root gerou diretório privado inacessível ao PHP-FPM; o comando passou a exigir www-data e a propriedade da pasta fictícia foi corrigida. A política de conteúdo dos arquivos foi ajustada para preservar o visualizador nativo de PDF e mídia. A listagem em tela menor passou de tabela com rolagem a cartões com metadados e ações visíveis.
+
+**Validação:** 52 testes e 259 assertions aprovados no ambiente isolado. No Edge, os dois perfis completaram login, filtro, navegação, TXT/PDF, miniatura, download e logout, sem erros JavaScript ou requisições externas. Tema persistente e telas desktop/mobile conferidos. Troca pública/autenticada e revogação de uma sessão anterior verificadas no navegador; a senha fictícia original foi restaurada ao terminar. Build de assets e Pint aprovados.
+
+**O que já pode ser visto:** http://127.0.0.1:8080 abre a tela de login. Credenciais de demonstração deste computador estão em artifacts/sprint-2/demo-access.json; para preparar um ambiente novo, usar ./scripts/dev.ps1 demo depois da inicialização. Login não usa contas do SQLite legado.
+
+**Pendências:** TI acompanhar o [roteiro](sprint-2.md) e registrar observações/aceite de T-10. Administração, upload e manutenção de pastas seguem T-11 a T-15; ZIP e lixeira permanecem nas tarefas posteriores. Migração e implantação na VM não foram realizadas.

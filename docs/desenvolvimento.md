@@ -1,6 +1,6 @@
 # Desenvolvimento local
 
-A fundação da Sprint 1 está implementada. Veja [evidências](sprint-1.md) e [inventário](inventario.md). Use Docker Desktop/WSL2 em modo Linux; PHP, Composer e Node são executados nos containers.
+A fundação e o incremento de acesso/consulta estão implementados. Veja as evidências da [Sprint 1](sprint-1.md), [Sprint 2](sprint-2.md) e o [inventário](inventario.md). Use Docker Desktop/WSL2 em modo Linux; PHP, Composer e Node são executados nos containers.
 
 ## Preparação reproduzível
 
@@ -18,7 +18,9 @@ Na raiz, execute no PowerShell:
 
 O script encontra o Docker instalado por usuário ou em Program Files. `prepare` gera APP_KEY e senhas aleatórias locais, usando as imagens fixadas em `docker/images.env`; não sobrescreve `.env`. Composer usa `composer.lock` e npm usa `package-lock.json`. Alterações de dependências devem atualizar e revisar esses arquivos.
 
-A aplicação está em http://127.0.0.1:8080; `/up` retorna 200 quando banco e storage estão disponíveis e 500 em falha. Debug está desativado. A página inicial ainda não fornece autenticação ou operações documentais.
+A aplicação está em http://127.0.0.1:8080, com login, troca de senha e consulta privada. `/up` retorna 200 quando banco e storage estão disponíveis e 500 em falha. Debug está desativado. Administração e ZIP seguem as próximas sprints.
+
+Para demonstração opt-in em um banco local novo, execute `./scripts/dev.ps1 demo` depois de `up`. O comando usa `www-data`, gera senhas aleatórias e salva credenciais em `artifacts/sprint-2/demo-access.json`. Não sobrescreve contas existentes e não importa usuários/documentos do legado. O roteiro e as pendências do aceite estão em [Sprint 2](sprint-2.md).
 
 ## Composição e dados
 

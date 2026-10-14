@@ -1,7 +1,7 @@
 # Modelagem dos fluxos da Intranet FCECON
 
 **Data:** 14 de outubro de 2026  
-**Status:** modelagem da solução completa; fundação, Docker local e esquema PostgreSQL implementados. Fluxos funcionais e produção seguem as próximas sprints; veja [Sprint 1](sprint-1.md).  
+**Status:** modelagem da solução completa; fundação, Docker local e esquema PostgreSQL implementados. Acesso e consulta implementados na [Sprint 2](sprint-2.md); administração, ciclo documental e produção seguem as próximas sprints.  
 **Base:** [arquitetura, regras, requisitos e critérios de aceitação](arquitetura.md).
 
 ## 1. Objetivo e leitura dos modelos
@@ -551,4 +551,4 @@ Na revisão documental, conferir:
 - Pacote com todas as imagens, configuração separada, volumes preservados e backup independente.
 - Compatibilidade de migrations/dados avaliada no retorno, com preservação das gravações recentes.
 
-Os critérios CA-01 a CA-19 são testes previstos para a implementação futura. Esta entrega valida a documentação e seus diagramas; não comprova execução de Laravel, Docker, PostgreSQL ou migração.
+Os critérios CA-01 a CA-19 especificam a solução completa. As evidências da [Sprint 1](sprint-1.md) e [Sprint 2](sprint-2.md) registram a execução técnica local e a cobertura do incremento; os diagramas sozinhos não comprovam funcionalidades futuras ou migração.

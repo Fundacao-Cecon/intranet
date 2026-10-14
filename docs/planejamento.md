@@ -1,7 +1,7 @@
 # Backlog de tarefas e sprints da Intranet FCECON
 
 **Data:** 14 de outubro de 2026  
-**Status:** Sprint 1 implementada e verificada tecnicamente; T-01 a T-05 concluídas no escopo local, com pendências externas da TI registradas no inventário. Demais tarefas em **Backlog**.  
+**Status:** Sprint 1 implementada e verificada tecnicamente; T-01 a T-05 concluídas no escopo local, com pendências externas da TI registradas no inventário. T-06 a T-09 implementadas e verificadas; T-10 em revisão aguardando TI. T-11 a T-30 em **Backlog**.  
 **Equipe de execução:** um desenvolvedor com apoio do Codex.  
 **Referências:** [arquitetura e requisitos](arquitetura.md) e [modelagem dos fluxos](modelagem.md).
 
@@ -115,7 +115,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-06 — Implementar login, logout e troca de senha
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 2](sprint-2.md).  
 **Dependências:** T-05.
 
 **Descrição:** implementar autenticação por sessão, último acesso, regeneração/invalidação de sessão e troca de senha com comprovação da senha atual. Preservar o formulário anterior ao login; não criar recuperação por e-mail ou senhas padrão compartilhadas.
@@ -127,7 +127,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-07 — Implementar autorização e proteções HTTP
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 2](sprint-2.md).  
 **Dependências:** T-06.
 
 **Descrição:** implementar policies por ação/perfil, CSRF nos envios e limitação de tentativas de autenticação. Recusar requisições administrativas diretas de `user`, invalidar acesso após logout e limitar GET a consulta/leitura, além de auditoria.
@@ -139,7 +139,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-08 — Implementar navegação, filtro e metadados
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 2](sprint-2.md).  
 **Dependências:** T-03, T-07.
 
 **Descrição:** listar raiz/pastas por ID, breadcrumbs, pastas antes de arquivos, ordenação e filtro de nome na pasta atual. Exibir autoria, tamanho e datas disponíveis, excluindo itens com ancestral removido. Usar fixtures para consultas iniciais.
@@ -151,7 +151,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-09 — Implementar visualização e download privados
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída tecnicamente; evidência em [Sprint 2](sprint-2.md).  
 **Dependências:** T-08, T-05.
 
 **Descrição:** criar rotas de streaming por ID com autorização do item/ancestrais, formatos inline seguros, attachment para os demais e miniaturas autenticadas. Proteger o storage contra URL direta e registrar início da leitura, sem afirmar entrega completa ao navegador.
@@ -163,7 +163,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-10 — Validar e demonstrar consulta à TI
 
 **Responsável:** Dev + Codex; TI valida o incremento.  
-**Prioridade:** P0; **estimativa:** P; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** P; **status:** Em revisão — validação técnica concluída; demonstração acompanhada e aceite da TI pendentes.  
 **Dependências:** T-06, T-07, T-08, T-09.
 
 **Descrição:** executar roteiro de login, senha, consulta, filtro, visualização e download para os dois perfis no Docker local. Usar dados fictícios e registrar observações da TI. A demonstração não inclui administração ainda não implementada.

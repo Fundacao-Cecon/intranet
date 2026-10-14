@@ -30,7 +30,8 @@ class FoundationTest extends TestCase
 
     public function test_foundation_page_uses_local_assets_and_no_document_listing(): void
     {
-        $this->get('/')->assertOk()->assertSee('Intranet FCECON')->assertSee('/build/assets/')->assertDontSee('fonts.googleapis.com');
+        $this->get('/')->assertRedirect('/login');
+        $this->get('/login')->assertOk()->assertSee('Intranet FCECON')->assertSee('/build/assets/')->assertDontSee('fonts.googleapis.com');
         $this->get('/uploads/documento.pdf')->assertNotFound();
         $this->get('/storage/documento.txt')->assertNotFound();
     }
