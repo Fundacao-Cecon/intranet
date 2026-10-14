@@ -1,66 +1,50 @@
-# Preparação do desenvolvimento
+# Desenvolvimento local
 
-## Estado atual
+A fundação da Sprint 1 está implementada. Veja [evidências](sprint-1.md) e [inventário](inventario.md). Use Docker Desktop/WSL2 em modo Linux; PHP, Composer e Node são executados nos containers.
 
-O checkout reúne o código PHP/SQLite legado, seu histórico Git e a documentação da nova arquitetura. O legado mantém os arquivos na raiz e em `uploads`, sem mudança de caminhos relativos.
+## Preparação reproduzível
 
-A aplicação Laravel, o Dockerfile e as configurações Compose ainda não foram criados. Não executar `docker compose up` neste repositório esperando a nova aplicação: a tarefa T-04 fornecerá a configuração e os comandos correspondentes.
-
-## Verificar Docker no Windows
-
-Após instalar o Docker Desktop, iniciar o aplicativo, usar o backend WSL2 e containers Linux. Se um terminal já estava aberto durante a instalação, abrir um novo terminal antes de verificar o comando. Referência: [Docker Desktop com WSL2](https://docs.docker.com/desktop/features/wsl/).
-
-Executar no PowerShell:
+Na raiz, execute no PowerShell:
 
 ```powershell
-docker version
-docker compose version
-docker info --format '{{.OSType}}'
+./scripts/dev.ps1 prepare
+./scripts/dev.ps1 build
+./scripts/dev.ps1 install
+./scripts/dev.ps1 assets
+./scripts/dev.ps1 migrate
+./scripts/dev.ps1 up
+./scripts/dev.ps1 test
 ```
 
-O resultado esperado é cliente e servidor Docker acessíveis, Compose disponível e tipo de containers `linux`. Se somente o cliente responder ou o servidor estiver indisponível, verificar se o Docker Desktop terminou a inicialização. Esses comandos verificam a instalação, não iniciam o sistema.
+O script encontra o Docker instalado por usuário ou em Program Files. `prepare` gera APP_KEY e senhas aleatórias locais, usando as imagens fixadas em `docker/images.env`; não sobrescreve `.env`. Composer usa `composer.lock` e npm usa `package-lock.json`. Alterações de dependências devem atualizar e revisar esses arquivos.
 
-Para inspecionar WSL quando necessário:
+A aplicação está em http://127.0.0.1:8080; `/up` retorna 200 quando banco e storage estão disponíveis e 500 em falha. Debug está desativado. A página inicial ainda não fornece autenticação ou operações documentais.
+
+## Composição e dados
+
+Sempre carregar os dois arquivos explicitamente. Equivalente ao script:
 
 ```powershell
-wsl --version
-wsl --list --verbose
+docker compose -f compose.yaml -f compose.development.yaml up -d --wait web
+docker compose -f compose.yaml -f compose.development.yaml run --rm app php artisan migrate --database=pgsql_migrate --force
+docker compose -f compose.yaml -f compose.development.yaml run --rm test
 ```
 
-Docker Desktop permite usar o CLI no terminal Windows com seu backend WSL2; uma distribuição Linux de desenvolvimento separada não é obrigatória para esse uso. Integração com uma distribuição específica pode ser habilitada se o trabalho for feito dentro dela. Fonte: [backend WSL2 do Docker Desktop](https://docs.docker.com/desktop/features/wsl/).
+`web` usa Nginx e publica apenas loopback:8080. `app` usa PHP-FPM; `db` PostgreSQL 18.6 sem porta no host. `scheduler` reutiliza a imagem da aplicação, está em perfil opcional e permanece desligado até T-20. `node` é ferramenta temporária de build. O complemento monta somente caminhos Laravel, nunca a raiz completa ou o legado. A configuração no container vem de variáveis de ambiente; `.env.example` é montado somente para leitura.
 
-## Próximas tarefas
+O banco de desenvolvimento, storage privado, vendor e cache têm volumes nomeados. Os testes usam `db-test/intranet_test`, rede própria, banco em tmpfs e volumes de storage/cache separados. O provider recusa APP_ENV=testing apontado ao banco de desenvolvimento. Factories e fixture são sintéticas; não importam SQLite ou uploads.
 
-| Tarefa | Entrega |
-|---|---|
-| T-01 | Inventário de VM, acervo, horários, recursos e limites com a TI. |
-| T-02 | Estrutura Laravel 13/PHP 8.4 e build de assets locais, preservando o legado. |
-| T-04 | Docker local com web/app/db, rede privada e volumes isolados. |
-| T-03 | Esquema PostgreSQL e migrations, usando o ambiente de T-04. |
-| T-05 | Auditoria básica, fixtures sintéticas e base de testes. |
+Migrations usam `intranet_migrator`; requisições e testes de negócio usam `intranet_app`, sem privilégio DDL. Credenciais de administração só são usadas na inicialização do PostgreSQL. Mudanças de senha posteriores exigem alteração coordenada no banco; editar `.env` não reinicializa um volume existente.
 
-A ordem acima respeita as dependências: IDs de tarefas não obrigam execução numérica. T-01 e T-02 podem ser tratadas independentemente enquanto se resolvem os parâmetros externos. Consulte o [planejamento completo](planejamento.md) para os critérios de cada tarefa.
+## Operação cotidiana
 
-## Organização prevista da nova aplicação
-
-Laravel será estruturado conforme suas convenções, com controllers, serviços, policies, models e views separados. Os futuros arquivos Compose terão base e complementos de desenvolvimento/produção carregados explicitamente. A composição final terá `web`, `app`, `db` e `scheduler`; este último reutiliza a imagem da aplicação.
-
-O ambiente local poderá montar o código para edição. Imagens de produção incluirão código, dependências e assets e serão testadas sem montagem antes de exportação. Banco e documentos ficam em volumes separados. Fonte: [modelo de aplicação Compose](https://docs.docker.com/compose/intro/compose-application-model/).
-
-Os nomes dos futuros diretórios de runtime não são uma justificativa para mover o legado nesta etapa. A introdução do Laravel deve ser revisada com o histórico e os dados existentes; migração e corte seguem tarefas específicas posteriores.
-
-## Git e arquivos locais
-
-Verificar o checkout com:
-
-```sh
-git status --short
-git branch --show-current
-git remote -v
+```powershell
+./scripts/dev.ps1 check
+./scripts/dev.ps1 logs
+./scripts/dev.ps1 down
+./scripts/dev.ps1 up
 ```
 
-O remoto `origin` aponta para o repositório da Fundação Cecon. A branch de organização é `chore/organizar-repositorio`; iniciar tarefas futuras conforme [CONTRIBUTING.md](../CONTRIBUTING.md).
+`down` preserva volumes. Preserve também `.env` e APP_KEY. Recriar containers não substitui backup. Não executar remoção de volumes nem rollback de migrations em bancos com dados reais. Build e teste de imagens de produção sem mounts, exportação/importação `.tar`, checksum e manifesto pertencem à Sprint 6.
 
-`database.db` e PDFs legados já são rastreados pelo Git. As regras novas de ignore impedem inclusão automática de novos dados nesses caminhos, mas não retiram os arquivos antigos do índice/histórico. Não usar banco ou storage de produção para validar o desenvolvimento.
-
-Backups locais ficam em `backups/`; arquivos de imagens e relatórios gerados podem ficar em `artifacts/`. Os diretórios são ignorados e não precisam ser criados antes de seu uso. Configurações reais e certificados são locais; exemplos versionados não conterão credenciais.
+O trabalho parte de `origin/dev`, conforme [contribuição](../CONTRIBUTING.md). Segredos, certificados, backups e relatórios locais ficam ignorados. Os arquivos legados continuam nos caminhos originais e não são servidos pelo Nginx novo.

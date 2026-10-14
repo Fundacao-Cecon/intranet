@@ -1,4 +1,4 @@
-# Texto e fins de linha para documentação e desenvolvimento Linux
+# Texto e fins de linha para documentaÃ§Ã£o e desenvolvimento Linux
 * text=auto
 *.md text eol=lf
 *.php text eol=lf
@@ -11,7 +11,7 @@ Dockerfile* text eol=lf
 .gitattributes text eol=lf
 .gitignore text eol=lf
 
-# Arquivos legados binários
+# Arquivos legados binÃ¡rios
 *.db binary
 *.sqlite binary
 *.sqlite3 binary
@@ -24,3 +24,14 @@ Dockerfile* text eol=lf
 *.zip binary
 *.tar binary
 *.gz binary
+
+# Runtime e assets portáveis entre Windows e Linux
+*.js text eol=lf
+*.css text eol=lf
+*.conf text eol=lf
+*.xml text eol=lf
+*.env text eol=lf
+.env.example text eol=lf
+artisan text eol=lf
+.dockerignore text eol=lf
+.npmrc text eol=lf

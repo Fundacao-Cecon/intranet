@@ -2,13 +2,13 @@
 
 **Data:** 14 de outubro de 2026  
 **Público:** equipe de TI responsável pelo desenvolvimento, implantação e manutenção.  
-**Status:** arquitetura proposta; a aplicação Laravel e a migração ainda não foram implementadas.
+**Status:** arquitetura da solução completa; fundação Laravel/Docker e esquema PostgreSQL implementados na Sprint 1. Migração do legado e implantação pendentes.
 
 ## 1. Objetivo e base de análise
 
 Este documento descreve o sistema existente e define sua evolução para um monólito modular em **Laravel + PostgreSQL + Docker**, com armazenamento privado de documentos em volumes persistentes de uma VM Linux no servidor principal. As funcionalidades atuais e os perfis `user` e `admin` serão preservados.
 
-A [modelagem dos fluxos](modelagem.md) complementa esta arquitetura com nove diagramas de usuário, API interna, banco e desenvolvimento/implantação. Ambos os documentos descrevem a solução futura; imagens, containers e aplicação ainda não foram implementados.
+A [modelagem dos fluxos](modelagem.md) complementa esta arquitetura com nove diagramas de usuário, API interna, banco e desenvolvimento/implantação. Os fluxos funcionais descrevem a solução completa. A fundação local já foi implementada; consulte [Sprint 1](sprint-1.md) para limites e evidências.
 
 O [planejamento de tarefas e sprints](planejamento.md) organiza a implementação em 30 tarefas, seis ciclos de duas semanas e critérios de aceite vinculados aos requisitos deste documento. O primeiro marco é a demonstração de acesso e consulta ao final da Sprint 2.
 
@@ -471,3 +471,7 @@ Ficam fora desta versão: aprovação de publicação, versionamento documental,
 Permanecem como parâmetros operacionais a definir pela TI: distribuição Linux, arquitetura da CPU e recursos da VM, versões exatas das imagens base, domínio/certificados, volume e crescimento do acervo, concorrência esperada, limites de tamanho e lote, orçamento de temporários, frequência/retenção de backup, SLA, RPO e RTO. A interpretação dos horários legados também depende do inventário. Essas lacunas não são preenchidas com valores arbitrários.
 
 A arquitetura futura só será considerada implantada após desenvolvimento, migração ensaiada e homologação. Este documento fornece sua base técnica e a rastreabilidade dos requisitos derivados do código.
+
+## Fundação implementada — Sprint 1
+
+Laravel está na raiz e Nginx serve somente `public`. PHP 8.4, PostgreSQL 18.6 e imagens oficiais fixadas por digest compõem o ambiente local. Compose exige o complemento de desenvolvimento explícito; testes usam rede, banco e storage separados. Runtime e migrations usam papéis distintos. A hierarquia usa IDs bigint identity, unicidade ativa incluindo a raiz e trigger contra ciclos/pais arquivo; snapshots mantêm história após exclusão de referências. Auditoria e healthcheck estão testados. Scheduler permanece opcional até T-20. Consulte [modelo físico e evidências](sprint-1.md), [comandos](desenvolvimento.md) e [pendências externas](inventario.md).

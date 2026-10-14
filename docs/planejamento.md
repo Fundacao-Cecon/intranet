@@ -1,7 +1,7 @@
 # Backlog de tarefas e sprints da Intranet FCECON
 
 **Data:** 14 de outubro de 2026  
-**Status:** planejamento inicial; todas as tarefas estão em **Backlog**.  
+**Status:** Sprint 1 implementada e verificada tecnicamente; T-01 a T-05 concluídas no escopo local, com pendências externas da TI registradas no inventário. Demais tarefas em **Backlog**.  
 **Equipe de execução:** um desenvolvedor com apoio do Codex.  
 **Referências:** [arquitetura e requisitos](arquitetura.md) e [modelagem dos fluxos](modelagem.md).
 
@@ -11,7 +11,7 @@ Organizar a implementação da Intranet Laravel + PostgreSQL + Docker em seis sp
 
 As 12 semanas são uma hipótese de organização, não uma previsão baseada em velocidade medida ou um prazo garantido. Datas de calendário serão definidas após a confirmação do início. A quantidade de tarefas não representa capacidade igual entre sprints: complexidade, bloqueios e resultados observados devem orientar o replanejamento.
 
-Esta entrega cria o planejamento documental. Não inicia a aplicação, não cria issues no GitHub e não executa a implantação. A autorização e o aceite do corte são condições de uma tarefa futura, não ações realizadas por este documento.
+Este documento acompanha o planejamento e a execução. A fundação local está registrada em [Sprint 1](sprint-1.md); não foram criadas issues nem executada implantação na VM. A autorização e o aceite do corte são condições de uma tarefa futura, não ações realizadas por este documento.
 
 | Sprint | Horizonte relativo | Objetivo | Marco e condição de saída | Tarefas |
 |---|---|---|---|---|
@@ -51,7 +51,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-01 — Inventariar infraestrutura e legado
 
 **Responsável:** Dev + Codex, com fornecimento e validação da TI.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída (escopo local; evidência em [Sprint 1](sprint-1.md)).  
 **Dependências:** nenhuma.
 
 **Descrição:** inventariar VM Linux, CPU, recursos, Docker/Compose, domínio e certificados; quantidade/tamanho do acervo, permissões, horários e condições de acesso ao SQLite. Definir com a TI limites operacionais e requisitos de backup/recuperação. Separar parâmetros essenciais para desenvolvimento dos necessários ao corte.
@@ -63,7 +63,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-02 — Estruturar Laravel e build de assets
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída (escopo local; evidência em [Sprint 1](sprint-1.md)).  
 **Dependências:** nenhuma; usar a arquitetura aprovada como entrada.
 
 **Descrição:** preparar Laravel 13/PHP 8.4 com separação de controllers, serviços, policies, models e Blade. Organizar Composer, assets locais, configuração de exemplo sem segredos e preservação do código/dados legados. Não substituir banco ou documentos do sistema existente.
@@ -75,7 +75,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-03 — Implementar esquema PostgreSQL e migrations
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** G; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** G; **status:** Concluída (escopo local; evidência em [Sprint 1](sprint-1.md)).  
 **Dependências:** T-02, T-04.
 
 **Descrição:** detalhar e implementar o esquema de usuários, itens e auditoria conforme a modelagem lógica. Definir constraints, unicidade incluindo a raiz, chaves estáveis e referências opcionais/snapshots históricos. Testar PostgreSQL real isolado; não importar produção nesta tarefa.
@@ -87,7 +87,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-04 — Preparar Docker local, rede e volumes
 
 **Responsável:** Dev + Codex; TI apoia pré-requisitos do computador.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída (escopo local; evidência em [Sprint 1](sprint-1.md)).  
 **Dependências:** T-02.
 
 **Descrição:** criar Dockerfile/base Compose e configuração de desenvolvimento para web, app e db, com volumes privados e isolados. Preparar o serviço scheduler para ativação funcional em T-20. Permitir edição local do código, mantendo dependências acessíveis e segredos fora das imagens.
@@ -99,7 +99,7 @@ Planejar e revisar cada sprint com a TI. Ao final, demonstrar o incremento, regi
 #### T-05 — Preparar auditoria e base de testes
 
 **Responsável:** Dev + Codex.  
-**Prioridade:** P0; **estimativa:** M; **status:** Backlog.  
+**Prioridade:** P0; **estimativa:** M; **status:** Concluída (escopo local; evidência em [Sprint 1](sprint-1.md)).  
 **Dependências:** T-03, T-04.
 
 **Descrição:** implementar registro de eventos de negócio sem segredos e infraestrutura de testes HTTP, PostgreSQL e filesystem temporário. Criar fixtures sintéticas de usuários, pastas e documentos para a demonstração, sem depender do importador de produção.

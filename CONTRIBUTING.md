@@ -2,14 +2,14 @@
 
 ## Antes de começar
 
-Leia a [arquitetura](docs/arquitetura.md), a [modelagem](docs/modelagem.md) e o [planejamento](docs/planejamento.md). Cada tarefa tem dependências, requisitos e evidências próprias. O quadro começa com as tarefas em Backlog; organizar este repositório não conclui a fundação Laravel ou Docker.
+Leia a [arquitetura](docs/arquitetura.md), a [modelagem](docs/modelagem.md) e o [planejamento](docs/planejamento.md). Cada tarefa tem dependências, requisitos e evidências próprias. O estado das tarefas e as evidências da Sprint 1 estão no planejamento e em docs/sprint-1.md.
 
 O desenvolvedor responde pela execução e revisão técnica com apoio do Codex. A TI fornece infraestrutura, parâmetros institucionais e aceite dos marcos. Não há nomes pessoais ou responsáveis externos atribuídos automaticamente.
 
 ## Trabalho com Git
 
 1. Verifique a branch e o estado do checkout antes de começar.
-2. Parta de `origin/main` para uma nova tarefa, preservando alterações locais que ainda não tenham sido integradas.
+2. Parta de `origin/dev` para uma nova tarefa, preservando alterações locais que ainda não tenham sido integradas.
 3. Use uma branch identificável, como `feat/t-06-autenticacao`, `fix/t-13-upload` ou `docs/t-01-inventario`. As branches remotas existentes permanecem disponíveis.
 4. Mantenha mudanças da tarefa, requisitos e testes relacionados no mesmo conjunto revisável.
 5. Prepare a descrição do pull request com objetivo, IDs T/RF/RNF/CA e evidências. Publicar uma branch ou abrir um PR é uma ação distinta de organizar o checkout local.
@@ -18,10 +18,10 @@ Exemplo para começar uma tarefa com o checkout sem alterações pendentes:
 
 ```sh
 git fetch origin
-git switch --create feat/t-06-autenticacao --no-track origin/main
+git switch --create feat/t-06-autenticacao --no-track origin/dev
 ```
 
-Os nomes de branch são exemplos; não troque de branch nem descarte alterações pendentes para repetir o comando. A branch `chore/organizar-repositorio` concentra a organização inicial.
+Os nomes de branch são exemplos; não troque de branch nem descarte alterações pendentes para repetir o comando. A integração do desenvolvimento ocorre em `dev`.
 
 Use commits descritivos, por exemplo `docs: organizar documentação do projeto` ou `feat: implementar login e logout (T-06)`. Não é necessário adicionar credenciais pessoais ao repositório.
 

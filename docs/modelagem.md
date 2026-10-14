@@ -1,7 +1,7 @@
 # Modelagem dos fluxos da Intranet FCECON
 
 **Data:** 14 de outubro de 2026  
-**Status:** modelagem da solução futura; aplicação, Dockerfile, Compose e migrations ainda não implementados.  
+**Status:** modelagem da solução completa; fundação, Docker local e esquema PostgreSQL implementados. Fluxos funcionais e produção seguem as próximas sprints; veja [Sprint 1](sprint-1.md).  
 **Base:** [arquitetura, regras, requisitos e critérios de aceitação](arquitetura.md).
 
 ## 1. Objetivo e leitura dos modelos

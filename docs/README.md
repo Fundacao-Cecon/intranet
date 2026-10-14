@@ -11,6 +11,6 @@ Os documentos descrevem a evolução planejada do portal legado. Eles não compr
 
 IDs RN/RF/RNF/CA têm sua definição na arquitetura. IDs M identificam diagramas da modelagem, e IDs T identificam tarefas do planejamento. Ao alterar um requisito ou fluxo, atualizar suas referências e critérios nos documentos relacionados.
 
-As tarefas começam em Backlog. O primeiro marco é a demonstração de acesso e consulta no final da Sprint 2. Datas de calendário dependem do início confirmado e da capacidade observada.
+T-01 a T-05 possuem entrega técnica local registrada em [Sprint 1](sprint-1.md); pendências externas estão no [inventário](inventario.md). As demais tarefas estão em Backlog. O primeiro marco é a demonstração de acesso e consulta no final da Sprint 2. Datas de calendário dependem do início confirmado e da capacidade observada.
 
 Consulte também a [apresentação do projeto](../README.md) e o [guia de contribuição](../CONTRIBUTING.md).

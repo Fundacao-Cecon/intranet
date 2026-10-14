@@ -1,0 +1,7 @@
+<?php
+
+return [
+    'default' => 'local',
+    'disks' => ['local' => ['driver' => 'local', 'root' => storage_path('app/private'), 'serve' => false, 'throw' => true, 'report' => false]],
+    'links' => [],
+];
