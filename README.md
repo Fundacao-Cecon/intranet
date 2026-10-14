@@ -36,6 +36,7 @@ Somente `web` publica a porta 8080, vinculada ao loopback. `app` e `db` usam red
 |---|---|
 | [Desenvolvimento](docs/desenvolvimento.md) | Comandos e configuração local |
 | [Sprint 1](docs/sprint-1.md) | Entrega, esquema físico e verificação |
+| [Diário de bordo](docs/diario-de-bordo.md) | Execução da sprint, decisões e próximos passos |
 | [Inventário](docs/inventario.md) | Ambiente confirmado e pendências da TI |
 | [Arquitetura](docs/arquitetura.md) | Regras, requisitos e decisões |
 | [Modelagem](docs/modelagem.md) | Fluxos da solução completa |
