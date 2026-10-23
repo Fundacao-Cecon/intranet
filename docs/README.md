@@ -1,21 +1,15 @@
-# Documentação da Intranet FCECON
+# Documentação — Intranet FCECON
 
-Os documentos descrevem a evolução do portal legado. Arquitetura e modelagem cobrem a solução completa; o inventário, as evidências de sprint e o diário registram o que já foi executado. A fundação local está implementada; migração e implantação permanecem pendentes.
+| Documento | Para que serve |
+|---|---|
+| [arquitetura.md](arquitetura.md) | Camadas, fluxo de uma requisição, rotas |
+| [refatoracao.md](refatoracao.md) | Mapa "código antigo → código novo" (do `index.php` monolítico) |
+| [seguranca.md](seguranca.md) | Achados do code review e status de cada correção |
+| [banco-de-dados.md](banco-de-dados.md) | Tabelas SQLite e regras de migração |
+| [usuarios-e-permissoes.md](usuarios-e-permissoes.md) | O que cada perfil pode fazer |
+| [operacao.md](operacao.md) | Instalar, configurar servidor, backup, criar usuários |
+| [pendencias.md](pendencias.md) | O que ainda não foi feito / não foi verificado |
+| [decisoes/](decisoes/) | ADRs — por que cada decisão estrutural foi tomada |
 
-| Ordem | Documento | Uso |
-|---|---|---|
-| 1 | [Arquitetura](arquitetura.md) | Entender problemática, solução, regras, requisitos e decisões técnicas. |
-| 2 | [Modelagem](modelagem.md) | Consultar os nove diagramas e os fluxos de usuário, API, banco e desenvolvimento. |
-| 3 | [Planejamento](planejamento.md) | Selecionar tarefa, conferir dependências e acompanhar os seis ciclos. |
-| 4 | [Desenvolvimento](desenvolvimento.md) | Preparar computador, verificar Docker e entender o estado do checkout. |
-| 5 | [Inventário](inventario.md) | Conferir ambiente local e pendências externas da TI. |
-| 6 | [Sprint 1](sprint-1.md) | Consultar entregas técnicas e verificações da fundação. |
-| 7 | [Diário de bordo](diario-de-bordo.md) | Acompanhar execução, decisões, ajustes e próximos passos por sprint. |
-| 8 | [Sprint 2](sprint-2.md) | Consultar entrega de acesso/consulta e roteiro de aceite da TI. |
-| 9 | [Sprint 3](sprint-3.md) | Conferir administração, upload consistente e validação integrada. |
-
-IDs RN/RF/RNF/CA têm sua definição na arquitetura. IDs M identificam diagramas da modelagem, e IDs T identificam tarefas do planejamento. Ao alterar um requisito ou fluxo, atualizar suas referências e critérios nos documentos relacionados.
-
-T-01 a T-05 possuem entrega técnica local registrada em [Sprint 1](sprint-1.md); T-06 a T-09 estão implementadas e verificadas, e T-10 aguarda avaliação da TI conforme [Sprint 2](sprint-2.md). Pendências externas estão no [inventário](inventario.md). T-11 a T-14 estão implementadas e verificadas; T-15 aguarda aceite conforme [Sprint 3](sprint-3.md). Tarefas da Sprint 4 em diante permanecem em Backlog. Datas de calendário dependem do início confirmado e da capacidade observada.
-
-Consulte também a [apresentação do projeto](../README.md) e o [guia de contribuição](../CONTRIBUTING.md).
+Origem: code review de `index.php` (monólito de ~930 linhas) seguido de reestruturação.
+O arquivo original está preservado em `_backup_original/` (fora do git; apague depois de validar).
