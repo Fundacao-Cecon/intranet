@@ -12,6 +12,7 @@
 | [usuarios-e-permissoes.md](usuarios-e-permissoes.md) | O que cada perfil pode fazer |
 | [operacao.md](operacao.md) | Instalar, configurar servidor, backup, criar usuários |
 | [pendencias.md](pendencias.md) | O que ainda não foi feito / não foi verificado |
+| [git-flow.md](git-flow.md) | Fluxo de branches (Git Flow): features, releases, hotfixes, tags e comandos |
 | [decisoes/](decisoes/) | ADRs — por que cada decisão estrutural foi tomada |
 
 Origem: code review de `index.php` (monólito de ~930 linhas) seguido de reestruturação.
