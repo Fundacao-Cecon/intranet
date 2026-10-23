@@ -56,6 +56,7 @@ O IIS ignora `.htaccess`; confirme que o site aponta para `public/`.
 |---|---|
 | `INTRANET_STORAGE` | pasta de dados (padrão `<projeto>/storage`) — pode ficar em outro disco |
 | `INTRANET_DEBUG=1` | mostra erros na tela (**nunca em produção**) |
+| `INTRANET_FORCE_HTTPS=1` | use quando um proxy/balanceador termina o HTTPS: força cookie `Secure` e envia HSTS (sem isso o PHP não enxerga o HTTPS) |
 | `INTRANET_NEW_PASSWORD` | senha lida por `bin/create-user.php` |
 
 ## Backup
@@ -73,6 +74,14 @@ PHP 8.3 está instalado em `D:\php` (no PATH do usuário; abra um terminal novo)
 php -S localhost:8000 -t public
 ```
 Para testar sem mexer nos dados reais, aponte para uma cópia: `INTRANET_STORAGE=C:\caminho\copia php -S localhost:8000 -t public`.
+
+## Testes automatizados
+```bash
+php tests/run.php
+```
+Sem dependências (não usa Composer/PHPUnit): cria um banco temporário, simula requisições com sessões reais e sai com código 1 se algo falhar. Hoje cobre o fluxo de login (18 testes: expiração de sessão, teto absoluto, tempo de resposta, logs, bloqueio, cookie/`gc_maxlifetime`, tela de login). Rode antes de cada deploy.
+
+Sessões: o PHP apaga arquivos de sessão com `session.gc_maxlifetime`; a aplicação ajusta esse valor para 8 h. Se outro sistema usar a mesma pasta de sessões com um valor menor, ele pode apagar as sessões daqui antes da hora: dê a cada sistema sua própria `session.save_path`.
 
 ## Proteção extra na raiz
 `.htaccess` e `web.config` na raiz do projeto são só rede de segurança caso o docroot aponte para a pasta errada; não substituem apontar o site para `public/`.

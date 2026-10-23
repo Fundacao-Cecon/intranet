@@ -57,7 +57,12 @@ return [
         'lockout_minutes'     => 15,
         'min_password_length' => 8,
         'session_lifetime'    => 28800,  // 8h de inatividade
+        'session_absolute'    => 43200,  // 12h desde o login, mesmo com uso contínuo
     ],
+
+    // 1 = site atrás de proxy/balanceador que termina o HTTPS (o PHP não vê
+    // $_SERVER['HTTPS']): força cookie Secure e envia HSTS.
+    'force_https' => $env('INTRANET_FORCE_HTTPS', '0') === '1',
 
     'logs' => [
         'retention_days' => 180,

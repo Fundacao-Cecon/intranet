@@ -1,5 +1,5 @@
 <?php
-/** @var array|null $flash  @var bool $hasUsers */
+/** @var array|null $flash  @var bool $hasUsers  @var bool $showChange abre direto o formulário de nova senha */
 ?><!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -21,7 +21,7 @@
             <div class="<?= $flash['type'] === 'success' ? 'success' : 'error' ?>"><?= h($flash['text']) ?></div>
         <?php endif; ?>
 
-        <div id="formLogin">
+        <div id="formLogin"<?= $showChange ? ' style="display:none"' : '' ?>>
             <h2>Acesso Intranet</h2>
             <form method="POST">
                 <?= App\Csrf::field() ?>
@@ -30,10 +30,10 @@
                 <div style="text-align:left;"><label>Senha</label><input type="password" name="pass" required autocomplete="current-password"></div>
                 <button type="submit" class="btn-login">Entrar</button>
             </form>
-            <a class="link-action" data-toggle-forms>Alterar Senha</a>
+            <button type="button" class="link-action" data-toggle-forms>Alterar Senha</button>
         </div>
 
-        <div id="formChange">
+        <div id="formChange"<?= $showChange ? ' style="display:block"' : '' ?>>
             <h2>Nova Senha</h2>
             <form method="POST">
                 <?= App\Csrf::field() ?>
@@ -43,7 +43,7 @@
                 <div style="text-align:left;"><label>Nova Senha</label><input type="password" name="pass_new" required minlength="8" autocomplete="new-password"></div>
                 <button type="submit" class="btn-login">Salvar</button>
             </form>
-            <a class="link-action" data-toggle-forms>Voltar ao Login</a>
+            <button type="button" class="link-action" data-toggle-forms>Voltar ao Login</button>
         </div>
 
         <div class="footer-credit">Desenvolvido por <strong>Tecnologia da Informação</strong></div>

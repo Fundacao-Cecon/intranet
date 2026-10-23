@@ -19,7 +19,7 @@ Legenda: ✅ corrigido no código · ⚠️ ação manual necessária · ⏳ pen
 | 6 | SVG permitido e servido direto (XSS armazenado) | ✅ só jpg/png/gif/webp/pdf/mp4/txt abrem inline; resto sempre `attachment` + `nosniff` |
 | 7 | XSS em `title=`, `src=`, `onclick=`; `new_type` livre | ✅ tudo escapado com `h()`; handlers inline removidos; role validada contra `['admin','user']` |
 | 8 | Anti-traversal fraco (`str_replace('../')`) | ✅ `FileStorage::resolve` rejeita `..` por segmento e compara prefixo com `/` final |
-| 9 | Role só na sessão | ✅ usuário/role recarregado do banco a cada request; sessão expira após 8h de inatividade |
+| 9 | Role só na sessão | ✅ usuário/role recarregado do banco a cada request; sessão expira após 8h de inatividade e 12h absolutas |
 
 ## Médio
 

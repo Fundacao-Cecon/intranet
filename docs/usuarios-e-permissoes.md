@@ -13,6 +13,6 @@
 Regras:
 - O perfil é lido do banco a cada requisição: mudar ou apagar um usuário vale imediatamente.
 - Não é possível excluir a si mesmo nem o último admin.
-- Sessão expira após 8 h de inatividade (`config['auth']['session_lifetime']`).
+- Sessão expira após 8 h de inatividade (`session_lifetime`) **ou** 12 h depois do login, mesmo com uso contínuo (`session_absolute`). Ao expirar, a tela de login mostra "Sua sessão expirou".
 - 5 falhas de login (ou de troca de senha) em 15 min para o mesmo usuário+IP bloqueiam novas tentativas por 15 min.
 - Senha: mínimo 8 caracteres.

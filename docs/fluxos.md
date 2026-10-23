@@ -52,7 +52,7 @@ flowchart TD
 | Passo | Código |
 |---|---|
 | Ponto de entrada | `public/index.php` → `Application::run` (`src/Application.php:L54-L67`) |
-| Erros, sessão, headers | `configureErrors` L153-L163 · `startSession` L127-L143 (cookie `INTRANETSESSID`, HttpOnly, SameSite=Lax, Secure em HTTPS) · `sendSecurityHeaders` L145-L151 |
+| Erros, sessão, headers | `configureErrors` L153-L163 · `startSession` L127-L145 (cookie `INTRANETSESSID`, HttpOnly, SameSite=Lax, Secure em HTTPS ou com `INTRANET_FORCE_HTTPS=1`; `gc_maxlifetime` = 8 h) · `isHttps` L148-L151 · `sendSecurityHeaders` L153-L162 (inclui HSTS em HTTPS) |
 | Serviços | `buildContext` L107-L125 (conecta SQLite, cria tabelas, sorteia limpeza de logs 1/50) |
 | Roteamento | `dispatch` L69-L105 · tabelas `GET_ROUTES` L22 / `POST_ROUTES` L28 / `PUBLIC_ACTIONS` L44 |
 | CSRF ⚙️ | `Csrf::verifyRequest` (`src/Csrf.php:L29-L34`), chamado em `dispatch` |
@@ -99,12 +99,12 @@ sequenceDiagram
 
 | Passo | Código |
 |---|---|
-| Tela de login | `AuthController::showLogin` (`src/Controllers/AuthController.php:L8-L14`) → `takeFlash`, `view('login')` |
-| Envio ⚙️ | `AuthController::login` L16-L23 → `Auth::attempt` (`src/Auth.php:L101-L134`) |
-| Rate limit | `isLockedOut` L278-L286 · `recordFailure` L288-L294 · `clearFailures` L296-L300 |
-| Senha | `password_verify`; `password_needs_rehash` → `setPasswordHash` L254-L258 |
+| Tela de login | `AuthController::showLogin` (`src/Controllers/AuthController.php:L8-L15`) → `takeFlash`, `view('login')` (`?form=change` abre direto o formulário de nova senha) |
+| Envio ⚙️ | `AuthController::login` L17-L24 → `Auth::attempt` (`src/Auth.php:L119-L156`) |
+| Rate limit | `isLockedOut` L351-L359 · `recordFailure` L361-L367 · `clearFailures` L369-L373 · `logBlockedOnce` L313-L324 (1 registro `LOGIN_BLOQUEADO` por IP e janela) |
+| Senha | `verifyPassword` L300-L304: **sempre** roda `password_verify`, contra `DUMMY_HASH` se o login não existe (sem diferença de tempo); `hash` L291-L294 (bcrypt, custo fixo 10); rehash → `setPasswordHash` L276-L280. Log da falha usa `logLabel` L307-L310: login real, ou `desconhecido#<hash>` (nunca o texto digitado) |
 | Sessão segura | `session_regenerate_id(true)` + `Csrf::regenerate` (`src/Csrf.php:L17-L20`) |
-| Estado logado | `Auth::user` L38-L66: lê `user_id` da sessão, **recarrega usuário/role do banco**, aplica expiração por inatividade |
+| Estado logado | `Auth::user` L48-L84: lê `user_id` da sessão, **recarrega usuário/role do banco**, aplica expiração por inatividade (8 h) e teto absoluto (12 h desde o login, `login_at`); se expirou ou o usuário sumiu, `invalidateSession` L331-L340 |
 
 Resultados verificados: GET `/` anônimo → 200 (login) · POST sem token → **419** · senha errada → 302 `index.php` com mensagem · senha correta → 302 `index.php` → 200 lista · 5 falhas → bloqueio mesmo com a senha certa.
 
@@ -134,7 +134,7 @@ flowchart TD
     L --> Z
 ```
 
-Código: `AuthController::changePassword` (`src/Controllers/AuthController.php:L35-L48`) → `Auth::changePassword` (`src/Auth.php:L147-L169`) → `validatePassword` L260-L267. Logado volta para a pasta atual (`redirectBack`); deslogado volta ao login.
+Código: `AuthController::changePassword` (`src/Controllers/AuthController.php:L36-L50`) → `Auth::changePassword` (`src/Auth.php:L169-L191`) → `validatePassword` L282-L289. Logado volta para a pasta atual (`redirectBack`); deslogado volta ao login (em caso de erro, para `index.php?form=change`, já com o formulário de nova senha aberto).
 
 ---
 
@@ -263,7 +263,7 @@ Depois de cada ação o admin continua na visão da lixeira (`index.php?mode=tra
 |---|---|---|
 | Criar | `UsersController::create` (`src/Controllers/UsersController.php:L7-L18`) → `Auth::createUser` (`src/Auth.php:L176-L195`) | login 3-50 (letras, números, `. _ -`); role só `admin`/`user`; senha ≥ 8; login duplicado → "Já existe." |
 | Excluir | `UsersController::delete` L20-L31 → `Auth::deleteUser` L212-L235 | não exclui a si mesmo; não exclui o **último admin** |
-| Fora do site | `bin/create-user.php` → `Auth::createUser` / `resetPassword` (L198-L209) | único jeito de criar o primeiro admin |
+| Fora do site | `bin/create-user.php` → `Auth::createUser` L198-L217 / `resetPassword` L220-L231 | único jeito de criar o primeiro admin |
 
 Efeito imediato: como `Auth::user` relê o banco a cada requisição, um usuário apagado perde a sessão na próxima chamada (verificado).
 
@@ -276,14 +276,14 @@ flowchart TD
     A["GET ?action=logout"] --> B["Auth::logout: destroySession"]
     B --> C["302 index.php"]
     C --> D["tela de login"]
-    E["qualquer requisição"] --> F{"inatividade maior que 8 h?"}
-    F -- sim --> G["destroySession: segue como anônimo"]
+    E["qualquer requisição"] --> F{"ocioso mais de 8 h ou mais de 12 h desde o login?"}
+    F -- sim --> G["invalidateSession: novo ID + novo CSRF + aviso, segue como anônimo"]
     F -- não --> H{"usuário ainda existe no banco?"}
     H -- não --> G
     H -- sim --> I["atualiza last_activity e segue"]
 ```
 
-Código: `AuthController::logout` (`AuthController.php:L25-L29`) → `Auth::logout` L136-L139 → `destroySession` L269-L276; expiração em `Auth::user` L38-L66. Após o logout, o cookie antigo cai na tela de login (verificado).
+Código: `AuthController::logout` (`AuthController.php:L25-L29`) → `Auth::logout` L158-L161 → `destroySession` L342-L349; expiração em `Auth::user` L48-L84 → `invalidateSession` L331-L340. Após o logout, o cookie antigo cai na tela de login (verificado). Na expiração a sessão **não é destruída**: troca o ID e o token CSRF e deixa o aviso "Sua sessão expirou. Entre novamente." (por isso o primeiro login depois de expirar não dá mais 419).
 
 ---
 

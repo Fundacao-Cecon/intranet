@@ -31,6 +31,8 @@
     .success { color: #2e7d32; background: #edf7ed; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; border: 1px solid #c8e6c9; }
     .link-action { display: block; margin-top: 20px; color: var(--blue); text-decoration: none; font-size: 14px; cursor: pointer; font-weight: 500; }
     .link-action:hover { text-decoration: underline; }
+    button.link-action { background: none; border: 0; padding: 0; width: 100%; font-family: inherit; }
+    button.link-action:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
     
     .footer-credit { 
         margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--border); 

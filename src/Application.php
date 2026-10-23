@@ -127,23 +127,34 @@ final class Application
     private function startSession(): void
     {
         $path = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/') . '/';
-        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        // Sem isto o PHP apaga a sessão após ~24 min (padrão 1440 s), bem antes
+        // das 8 h de ociosidade que Auth::user() aplica.
+        ini_set('session.gc_maxlifetime', (string) $this->config['auth']['session_lifetime']);
         session_name('INTRANETSESSID');
         session_set_cookie_params([
             'lifetime' => 0,
             'path'     => $path,
-            'secure'   => $secure,
+            'secure'   => $this->isHttps(),
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
         session_start();
     }
 
+    /** HTTPS direto no PHP, ou forçado por config quando um proxy termina o TLS. */
+    private function isHttps(): bool
+    {
+        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || !empty($this->config['force_https']);
+    }
+
     private function sendSecurityHeaders(): void
     {
+        if ($this->isHttps()) {
+            header('Strict-Transport-Security: max-age=15552000'); // 180 dias
+        }
         header('X-Content-Type-Options: nosniff');
         header('X-Frame-Options: SAMEORIGIN');
         header('Referrer-Policy: same-origin');

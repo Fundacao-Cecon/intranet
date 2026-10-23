@@ -10,6 +10,7 @@ final class AuthController extends Controller
         view('login', [
             'flash'    => $this->takeFlash(),
             'hasUsers' => $this->ctx->auth->hasUsers(),
+            'showChange' => ($_GET['form'] ?? '') === 'change',
         ]);
     }
 
@@ -44,6 +45,7 @@ final class AuthController extends Controller
         if ($this->ctx->auth->check()) {
             $this->redirectBack();
         }
-        $this->redirect();
+        // Deslogado: em caso de erro, reabre o formulário de nova senha (não o de login).
+        $this->redirect($ok ? [] : ['form' => 'change']);
     }
 }
