@@ -10,6 +10,8 @@ if (PHP_SAPI !== 'cli') {
     exit("Somente linha de comando.\n");
 }
 
+require __DIR__ . '/helpers.php';
+
 ob_start(); // sem isto o PHP considera os headers enviados e session_regenerate_id falha
 
 $config = require dirname(__DIR__) . '/src/bootstrap.php';
@@ -21,7 +23,7 @@ use App\Logger;
 
 // --- ambiente de teste ------------------------------------------------------
 
-$tmp = sys_get_temp_dir() . '/intranet-tests-' . bin2hex(random_bytes(4));
+$tmp = mktmp();
 mkdir($tmp . '/sessions', 0775, true);
 ini_set('session.save_path', $tmp . '/sessions');
 ini_set('session.use_cookies', '0');
@@ -55,30 +57,6 @@ function ip(string $addr): void
     $_SERVER['REMOTE_ADDR'] = $addr;
 }
 
-// --- mini framework -----------------------------------------------------------
-
-$failures = 0;
-$total = 0;
-
-function check(bool $cond, string $msg): void
-{
-    if (!$cond) {
-        throw new RuntimeException($msg);
-    }
-}
-
-function test(string $name, callable $fn): void
-{
-    global $failures, $total;
-    $total++;
-    try {
-        $fn();
-        fwrite(STDOUT, "  ok    $name\n");
-    } catch (Throwable $e) {
-        $failures++;
-        fwrite(STDOUT, "  FALHA $name\n        " . $e->getMessage() . "\n");
-    }
-}
 
 function logRows(string $acao): array
 {
@@ -327,16 +305,7 @@ test('?form=change abre o formulário de nova senha e esconde o de login', funct
 
 // --- fim ---------------------------------------------------------------------------------------
 
-function rrm(string $d): void
-{
-    foreach (glob($d . '/{,.}[!.,!..]*', GLOB_BRACE) ?: [] as $f) {
-        is_dir($f) ? rrm($f) : @unlink($f);
-    }
-    @rmdir($d);
-}
 $db = null;
 rrm($tmp);
-
 ob_end_clean();
-echo "\n" . ($total - $failures) . " de $total testes passaram.\n";
-exit($failures ? 1 : 0);
+finish();

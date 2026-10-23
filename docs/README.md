@@ -3,6 +3,7 @@
 | Documento | Para que serve |
 |---|---|
 | [arquitetura.md](arquitetura.md) | Camadas, fluxo de uma requisição, rotas |
+| [estrategia-de-testes.md](estrategia-de-testes.md) | Plano de testes: pirâmide, risco, 102 testes automatizados, mutação, defeitos achados e lacunas |
 | [fluxos.md](fluxos.md) | Fluxos do login à ação final (diagramas Mermaid + passo → `arquivo:linha`) |
 | [fluxos/viz/index.html](fluxos/viz/index.html) | Grafo interativo do código (Trail-Code), arquivo único |
 | [refatoracao.md](refatoracao.md) | Mapa "código antigo → código novo" (do `index.php` monolítico) |

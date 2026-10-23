@@ -77,9 +77,12 @@ Para testar sem mexer nos dados reais, aponte para uma cópia: `INTRANET_STORAGE
 
 ## Testes automatizados
 ```bash
-php tests/run.php
+php tests/all.php          # tudo (102 testes, ~30 s)
+php tests/all.php unit      # só uma suíte: login | unit | http
 ```
-Sem dependências (não usa Composer/PHPUnit): cria um banco temporário, simula requisições com sessões reais e sai com código 1 se algo falhar. Hoje cobre o fluxo de login (18 testes: expiração de sessão, teto absoluto, tempo de resposta, logs, bloqueio, cookie/`gc_maxlifetime`, tela de login). Rode antes de cada deploy.
+Sem Composer/PHPUnit. Usa bancos e pastas temporários e, na suíte `http`, sobe o próprio servidor (`php -S`); exige as extensões `curl` e `zip` no PHP **da linha de comando** (`php.ini`). Sai com código 1 se algo falhar. Veja [estrategia-de-testes.md](estrategia-de-testes.md). Rode antes de cada deploy.
+
+Em produção deixe `display_errors = Off` no `php.ini` (já está em `public/.user.ini`): com ele ligado, um upload acima de `post_max_size` devolve o aviso do PHP no corpo da resposta e o status 200.
 
 Sessões: o PHP apaga arquivos de sessão com `session.gc_maxlifetime`; a aplicação ajusta esse valor para 8 h. Se outro sistema usar a mesma pasta de sessões com um valor menor, ele pode apagar as sessões daqui antes da hora: dê a cada sistema sua própria `session.save_path`.
 

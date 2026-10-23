@@ -149,3 +149,20 @@
         .toast.success { border-color: var(--success-color); }
         .toast.error { border-color: var(--danger-color); }
         .lightbox-content { max-width: 90%; max-height: 85vh; margin: auto; display: block; border-radius: 5px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
+        /* Celular/tablet estreito: esconde colunas secundárias e deixa a barra superior quebrar linha,
+           senão o conteúdo é cortado (overflow:hidden) e botões como "Sair" ficam inalcançáveis. */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .top-bar { flex-wrap: wrap; gap: 10px; padding: 12px 15px; }
+            .user-area { flex-wrap: wrap; gap: 8px; }
+            .content-body { padding: 15px; }
+            .file-list-header .col-user, .file-list-header .col-size, .file-list-header .col-date,
+            .file-item .col-user, .file-item .col-size, .file-item .col-date { display: none; }
+            .col-name { min-width: 0; }
+            .col-actions { width: auto; flex-shrink: 0; }
+            .file-item { padding: 10px 8px; gap: 4px; }
+            .search-box input { width: 100%; }
+            .nav-bar { gap: 10px; }
+            .search-box { flex: 1 1 100%; }
+        }

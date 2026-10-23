@@ -70,8 +70,12 @@ final class Application
     {
         $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 
-        // Upload maior que post_max_size chega com $_POST/$_FILES vazios.
-        if ($isPost && empty($_POST) && empty($_FILES) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        // Upload maior que post_max_size chega com $_POST/$_FILES vazios. Só é esse
+        // caso se o corpo realmente passa do limite (um POST text/plain pequeno também
+        // vem com $_POST vazio e não é "arquivo grande demais").
+        $length = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        $max = $this->iniBytes((string) ini_get('post_max_size'));
+        if ($isPost && empty($_POST) && empty($_FILES) && $length > 0 && $max > 0 && $length > $max) {
             $this->plainError(413, 'O arquivo enviado excede o limite do servidor (post_max_size).');
         }
 
@@ -196,6 +200,22 @@ final class Application
             echo $msg;
         }
         exit;
+    }
+
+    /** "8M" / "2G" / "512K" / "1048576" => bytes (0 = sem limite ou inválido). */
+    private function iniBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+        $n = (int) $value;
+        switch (strtolower(substr($value, -1))) {
+            case 'g': $n *= 1024; // no break
+            case 'm': $n *= 1024; // no break
+            case 'k': $n *= 1024;
+        }
+        return max(0, $n);
     }
 
     private function scalar($v): string

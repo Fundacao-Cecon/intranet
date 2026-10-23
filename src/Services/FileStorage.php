@@ -72,7 +72,10 @@ final class FileStorage
     /** Nome simples de item (sem diretórios); '' se inválido. */
     public function safeItem($name): string
     {
-        $name = basename(str_replace('\\', '/', (string) $name));
+        if (!is_string($name)) { // ?file[]=x chega como array: não é um nome
+            return '';
+        }
+        $name = basename(str_replace('\\', '/', $name));
         if ($name === '' || $name === '.' || $name === '..' || strpos($name, "\0") !== false) {
             return '';
         }
