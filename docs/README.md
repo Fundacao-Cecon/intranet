@@ -3,6 +3,8 @@
 | Documento | Para que serve |
 |---|---|
 | [arquitetura.md](arquitetura.md) | Camadas, fluxo de uma requisição, rotas |
+| [fluxos.md](fluxos.md) | Fluxos do login à ação final (diagramas Mermaid + passo → `arquivo:linha`) |
+| [fluxos/viz/index.html](fluxos/viz/index.html) | Grafo interativo do código (Trail-Code), arquivo único |
 | [refatoracao.md](refatoracao.md) | Mapa "código antigo → código novo" (do `index.php` monolítico) |
 | [seguranca.md](seguranca.md) | Achados do code review e status de cada correção |
 | [banco-de-dados.md](banco-de-dados.md) | Tabelas SQLite e regras de migração |
