@@ -57,6 +57,7 @@ final class Application
         ob_start(); // avisos do PHP não podem fechar os headers antes de um erro 500 limpo
 
         try {
+            $this->rejectUnknownPath();
             $this->startSession();
             $this->sendSecurityHeaders();
 
@@ -65,6 +66,22 @@ final class Application
         } catch (Throwable $e) {
             $this->handleFatal($e);
         }
+    }
+
+    /**
+     * O front controller só atende a raiz e /index.php. Qualquer outro caminho é 404: o servidor
+     * embutido do PHP 8.4 passou a rotear arquivos inexistentes com extensão (/database.db,
+     * /uploads/x.jpg) para o index.php, que respondia 200 com a tela de login.
+     */
+    private function rejectUnknownPath(): void
+    {
+        $uri = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
+        $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+        if ($uri === $base . '/' || $uri === $base . '/index.php') {
+            return;
+        }
+        http_response_code(404);
+        exit('Não encontrado.');
     }
 
     private function dispatch(Context $ctx): void

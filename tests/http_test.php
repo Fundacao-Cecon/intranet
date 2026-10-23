@@ -99,7 +99,7 @@ test('GET / anônimo: tela de login, cookie HttpOnly+SameSite, cabeçalhos de se
 
 test('arquivos internos nunca são servidos pela web (404)', function () use ($anon) {
     $paths = ['/database.db', '/storage/database.db', '/src/Auth.php', '/config/config.php', '/bin/create-user.php', '/tests/helpers.php',
-              '/docs/fluxos.md', '/uploads/Docs/nota.txt', '/.git/config', '/composer.json', '/.env', '/index.php/../../src/Auth.php',
+              '/docs/fluxos.md', '/uploads/Docs/nota.txt', '/.git/config', '/composer.json', '/.env', '/index.php/../../src/Auth.php', '/index.php/database.db',
               '/assets/../../src/Auth.php', '/%2e%2e/src/Auth.php', '/..%2fconfig/config.php', '/public/index.php'];
     foreach ($paths as $p) {
         $r = $anon->get($p);

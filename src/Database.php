@@ -19,7 +19,9 @@ final class Database
         $pdo = new PDO('sqlite:' . $file);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $pdo->exec('PRAGMA busy_timeout = 5000');
+        // Espera por escritores concorrentes (rollback journal: um por vez). 5 s estourava
+        // com 8 processos gravando em disco lento (runner do Windows): "database is locked".
+        $pdo->exec('PRAGMA busy_timeout = 15000');
 
         self::migrate($pdo);
         return $pdo;
