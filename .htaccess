@@ -1,0 +1,22 @@
+# REDE DE SEGURANÇA (Apache). O correto é apontar o docroot do site para public/.
+# Se o docroot ficar nesta pasta, este arquivo:
+#   1) bloqueia pastas internas (código, config, dados, docs, backups);
+#   2) encaminha o resto para public/, para o site continuar funcionando.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(src|config|storage|bin|docs|_backup_original|graft|\.git)(/|$) - [F,L]
+    RewriteRule ^(?!public/)(.*)$ public/$1 [L]
+</IfModule>
+
+# Arquivos soltos na raiz que nunca devem ser servidos
+<FilesMatch "(^\.|\.(md|db|txt|json|lock|ini)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

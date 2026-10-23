@@ -1,0 +1,18 @@
+# Dados reais e segredos: nunca versionar
+/storage/uploads/
+/storage/trash/
+/storage/logs/
+/storage/*.db
+/storage/*.db-*
+/_backup_original/
+/senhas-novas.txt
+.env
+
+# Ferramentas / sistema
+/graft/
+.DS_Store
+Thumbs.db
+/vendor/
+
+# Dependências de teste de JS
+/tests/js/node_modules/

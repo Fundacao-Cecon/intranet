@@ -1,0 +1,14 @@
+# Apache. Docroot do site = esta pasta (public/).
+Options -Indexes
+DirectoryIndex index.php
+
+# Nunca servir arquivos ocultos (.git, .env, .user.ini...), exceto .well-known.
+<FilesMatch "^\.(?!well-known)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

@@ -1,5 +1,0 @@
-Options -Indexes
-<FilesMatch "\.(php|phtml|php5|phar|inc)">
-Order Deny,Allow
-Deny from all
-</FilesMatch>
