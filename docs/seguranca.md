@@ -31,6 +31,10 @@ Legenda: ✅ corrigido no código · ⚠️ ação manual necessária · ⏳ pen
 | 13 | Lixeira restaurava só na raiz | ✅ restaura na pasta original (tabela `trash_origin`) |
 | 14 | Tabela `logs` sem retenção | ✅ limpeza automática > 180 dias (`config['logs']['retention_days']`) |
 | 15 | Font Awesome por CDN, sem SRI | ⏳ ver [pendencias.md](pendencias.md) |
+| 16 | Uploads simultâneos com o mesmo nome sobrescreviam arquivos em silêncio | ✅ FileStorage::reserveName (reserva atômica) |
+| 17 | Dois admins podiam se excluir ao mesmo tempo e deixar o sistema sem admin | ✅ deleteUser em transação BEGIN IMMEDIATE |
+| 18 | Erro 500 em modo debug saía com status 200 | ✅ buffer de saída em Application::run |
+| 19 | Corrida no limite de tentativas de login (30 simultâneas gravam 10 falhas) | ⏳ Fase 2 da ADR-0005 (teste 	odo já escrito) |
 
 ## Rotação de senhas (feita em 23/10/2026)
 

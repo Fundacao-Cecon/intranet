@@ -89,22 +89,49 @@ final class FileStorage
         return str_replace(['..', '/'], '', (string) $limpo);
     }
 
-    /** Era renomearSeExistir(): "a.pdf" -> "a (1).pdf" se já existir. */
+    /** Era renomearSeExistir(): "a.pdf" -> "a (1).pdf" se já existir. Só ESCOLHE o nome. */
     public function uniqueName(string $dir, string $nome): string
+    {
+        list($base, $ext) = $this->splitName($nome);
+        $n = 0;
+        do {
+            $final = $this->candidate($base, $ext, $n++);
+        } while (file_exists($dir . $final));
+        return $final;
+    }
+
+    /**
+     * Como uniqueName(), mas RESERVA o nome criando um arquivo vazio de forma atômica
+     * (modo "x": falha se já existir). Dois uploads simultâneos com o mesmo nome nunca
+     * recebem o mesmo nome; quem chamou depois substitui o arquivo vazio pelo conteúdo
+     * (move_uploaded_file/rename sobrescrevem) ou o apaga se desistir.
+     */
+    public function reserveName(string $dir, string $nome): string
+    {
+        list($base, $ext) = $this->splitName($nome);
+        for ($n = 0; $n < 100000; $n++) {
+            $final = $this->candidate($base, $ext, $n);
+            $h = @fopen($dir . $final, 'x');
+            if ($h !== false) {
+                fclose($h);
+                return $final;
+            }
+        }
+        throw new \RuntimeException('Não foi possível reservar um nome livre em ' . $dir);
+    }
+
+    /** @return array [string $baseLimpa, string $extComPonto] */
+    private function splitName(string $nome): array
     {
         $info = pathinfo($nome);
         $ext = isset($info['extension']) ? '.' . $info['extension'] : '';
         $base = $this->cleanName($info['filename']);
-        if ($base === '') {
-            $base = 'arquivo';
-        }
-        $final = $base . $ext;
-        $n = 1;
-        while (file_exists($dir . $final)) {
-            $final = $base . ' (' . $n . ')' . $ext;
-            $n++;
-        }
-        return $final;
+        return [$base === '' ? 'arquivo' : $base, $ext];
+    }
+
+    private function candidate(string $base, string $ext, int $n): string
+    {
+        return $n === 0 ? $base . $ext : $base . ' (' . $n . ')' . $ext;
     }
 
     public function isHidden(string $name): bool

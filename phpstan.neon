@@ -1,0 +1,11 @@
+# Análise estática (PHPStan). Rode:  php D:/php/tools/phpstan.phar analyse   (ou: composer/phar no CI)
+parameters:
+    level: 5
+    paths:
+        - src
+        - bin
+        - public/index.php
+    # As views são templates PHP que recebem variáveis por extract() (src/helpers.php::view).
+    excludePaths:
+        - src/Views/*
+    treatPhpDocTypesAsCertain: false

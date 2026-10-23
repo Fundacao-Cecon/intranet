@@ -1,16 +1,16 @@
         /* CSS DO PAINEL PRINCIPAL */
         :root { 
             --bg-body: #f0f2f5; --bg-container: #ffffff; --text-primary: #1c1e21; --text-secondary: #65676b;
-            --border-color: #dddfe2; --accent-color: #1877f2; --success-color: #2e7d32; --danger-color: #d32f2f; --warning-color: #ed6c02;
+            --border-color: #dddfe2; --accent-color: #0b5fd6; --accent-bg: #0b5fd6; --success-color: #2e7d32; --danger-color: #d32f2f; --warning-color: #ed6c02;
             --hover-bg: #f5f6f7; --shadow: 0 2px 8px rgba(0,0,0,0.08);
             --trash-bg: #fff3cd; --trash-text: #664d03; --trash-border: #ffeeba;
-            --btn-view-bg: #e3f2fd; --btn-view-text: #1877f2; --btn-view-border: #bbdefb;
+            --btn-view-bg: #e3f2fd; --btn-view-text: #0b5fd6; --btn-view-border: #bbdefb;
             --stat-card-bg: #f8f9fa;
-            --btn-new-user: #2ecc71; --btn-trash: #34495e; --btn-key: #3498db;
+            --btn-new-user: #1b7f43; --btn-trash: #34495e; --btn-key: #1c6ca8;
         }
         body.dark-mode { 
             --bg-body: #18191a; --bg-container: #242526; --text-primary: #e4e6eb; --text-secondary: #b0b3b8;
-            --border-color: #3e4042; --accent-color: #4791ff; --hover-bg: #3a3b3c; --shadow: 0 2px 8px rgba(0,0,0,0.2);
+            --border-color: #3e4042; --accent-color: #7db4ff; --accent-bg: #2b67d1; --hover-bg: #3a3b3c; --shadow: 0 2px 8px rgba(0,0,0,0.2);
             --trash-bg: #423508; --trash-text: #ffdf7e; --trash-border: #5e4b12;
             --btn-view-bg: #1c2b40; --btn-view-text: #6ba4ff; --btn-view-border: #2d4669;
             --stat-card-bg: #2f3031;
@@ -68,7 +68,7 @@
         .action-title { font-weight: 600; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
         .input-group { display: flex; gap: 10px; }
         .form-input { flex-grow: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-container); color: var(--text-primary); }
-        .btn-primary { padding: 10px 20px; background: var(--accent-color); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .btn-primary { padding: 10px 20px; background: var(--accent-bg); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 
         .file-list-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: var(--bg-container); }
         
@@ -94,7 +94,7 @@
         .btn-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-container); color: var(--text-secondary); transition: 0.2s; cursor: pointer; }
         .btn-icon:hover { background: var(--hover-bg); color: var(--accent-color); border-color: var(--accent-color); }
         .btn-icon.view { background: var(--btn-view-bg); color: var(--btn-view-text); border-color: var(--btn-view-border); }
-        .btn-icon.view:hover { background: var(--accent-color); color: white; border-color: var(--accent-color); }
+        .btn-icon.view:hover { background: var(--accent-bg); color: white; border-color: var(--accent-bg); }
         .btn-icon.delete:hover { color: var(--danger-color); border-color: var(--danger-color); background: #fff5f5; } body.dark-mode .btn-icon.delete:hover { background: #2a1212; }
         .file-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; }
         .file-checkbox { transform: scale(1.2); cursor: pointer; accent-color: var(--accent-color); }

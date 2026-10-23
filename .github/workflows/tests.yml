@@ -1,0 +1,84 @@
+name: Testes
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    name: PHP ${{ matrix.php }} em ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        php: ['7.4', '8.1', '8.3', '8.4']
+        include:
+          - os: windows-latest
+            php: '8.3'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, sqlite3, zip, curl, mbstring, fileinfo
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: tests/js/package-lock.json
+
+      - name: Dependências dos testes de JS (jsdom + axe-core)
+        run: npm ci --ignore-scripts
+        working-directory: tests/js
+
+      - name: Suítes (login, unit, http, concorrência, backup, smoke, JS/a11y, pendentes da Fase 2)
+        run: php tests/all.php
+
+  cobertura:
+    name: Cobertura de linhas (PCOV, meta 90%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, sqlite3, zip, curl, mbstring, fileinfo
+          coverage: pcov
+      - name: Cobertura com piso por arquivo crítico
+        run: php tests/coverage.php --min=90
+
+  analise-estatica:
+    name: PHPStan (nível 5)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring
+          coverage: none
+      - name: Baixa o PHPStan
+        run: curl -fsSL -o phpstan.phar https://github.com/phpstan/phpstan/releases/latest/download/phpstan.phar
+      - run: php phpstan.phar analyse --no-progress --memory-limit=1G
+
+  arquivo-grande:
+    name: Arquivo grande (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, sqlite3, zip, curl, mbstring
+          coverage: none
+      - run: php tests/large_test.php --mb=300

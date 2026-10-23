@@ -9,6 +9,7 @@
 
 require __DIR__ . '/helpers.php';
 $config = require dirname(__DIR__) . '/src/bootstrap.php';
+$GLOBALS['config'] = $config;
 
 use App\Auth;
 use App\Database;
@@ -19,143 +20,7 @@ if (!extension_loaded('curl')) {
     exit(2);
 }
 
-// ===================================================================================
-// Cliente HTTP mínimo (cookies por cliente, sem seguir redirects)
-// ===================================================================================
-
-final class Resp
-{
-    public $status = 0;
-    public $headers = [];
-    public $body = '';
-
-    public function h(string $name): string
-    {
-        return $this->headers[strtolower($name)] ?? '';
-    }
-
-    public function location(): string
-    {
-        return $this->h('location');
-    }
-
-    /** Texto do toast (flash) embutido na página, se houver. */
-    public function flash(): string
-    {
-        return preg_match('/data-flash-text="([^"]*)"/', $this->body, $m) ? html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') : '';
-    }
-
-    /** Mensagem de erro/sucesso da tela de login. */
-    public function loginMessage(): string
-    {
-        return preg_match('/class="(?:error|success)">([^<]*)</', $this->body, $m) ? html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') : '';
-    }
-}
-
-final class Client
-{
-    public $jar;
-    private $base;
-
-    public function __construct(string $base)
-    {
-        $this->base = $base;
-        $this->jar = tempnam(sys_get_temp_dir(), 'jar');
-    }
-
-    public function __destruct()
-    {
-        @unlink($this->jar);
-    }
-
-    public function req(string $method, string $path, $body = null, array $headers = []): Resp
-    {
-        $r = new Resp();
-        $ch = curl_init($this->base . $path);
-        curl_setopt_array($ch, [
-            CURLOPT_CUSTOMREQUEST  => $method,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_COOKIEJAR      => $this->jar,
-            CURLOPT_COOKIEFILE     => $this->jar,
-            CURLOPT_PATH_AS_IS     => true,
-            CURLOPT_TIMEOUT        => 60,
-            CURLOPT_HEADERFUNCTION => function ($ch, $line) use ($r) {
-                if (preg_match('#^HTTP/\S+\s+(\d+)#', $line, $m)) {
-                    $r->status = (int) $m[1];
-                    $r->headers = [];
-                } elseif (strpos($line, ':') !== false) {
-                    [$k, $v] = explode(':', $line, 2);
-                    $k = strtolower(trim($k));
-                    $r->headers[$k] = isset($r->headers[$k]) ? $r->headers[$k] . "\n" . trim($v) : trim($v);
-                }
-                return strlen($line);
-            },
-        ]);
-        if ($body !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        }
-        if ($headers) {
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        }
-        $out = curl_exec($ch);
-        if ($out === false) {
-            throw new RuntimeException('curl: ' . curl_error($ch) . " ($method $path)");
-        }
-        $r->body = $out;
-        curl_close($ch);
-        return $r;
-    }
-
-    public function get(string $path, array $headers = []): Resp
-    {
-        return $this->req('GET', $path, null, $headers);
-    }
-
-    /** Token CSRF da sessão atual (lido da página). */
-    public function token(): string
-    {
-        $p = $this->get('/');
-        if (preg_match('/name="csrf-token" content="([^"]+)"/', $p->body, $m) || preg_match('/name="_csrf" value="([^"]+)"/', $p->body, $m)) {
-            return $m[1];
-        }
-        throw new RuntimeException('sem token CSRF na página (status ' . $p->status . ')');
-    }
-
-    /** POST de formulário (urlencoded) com CSRF automático. */
-    public function post(string $path, array $fields, bool $csrf = true, array $headers = []): Resp
-    {
-        if ($csrf) {
-            $fields['_csrf'] = $this->token();
-        }
-        return $this->req('POST', $path, http_build_query($fields), $headers);
-    }
-
-    /** POST multipart (upload) com CSRF automático. */
-    public function upload(string $path, array $files, array $fields = [], bool $ajax = true): Resp
-    {
-        $fields += ['_csrf' => $this->token(), 'action' => 'upload'];
-        $i = 0;
-        foreach ($files as $name => $content) {
-            $tmpf = tempnam(sys_get_temp_dir(), 'up');
-            file_put_contents($tmpf, $content);
-            $fields['arquivos[' . $i++ . ']'] = new CURLFile($tmpf, 'application/octet-stream', $name);
-        }
-        $r = $this->req('POST', $path, $fields, $ajax ? ['X-Requested-With: XMLHttpRequest'] : []);
-        return $r;
-    }
-
-    /** Segue um redirect relativo (Location: index.php?...). */
-    public function follow(Resp $r): Resp
-    {
-        check(in_array($r->status, [301, 302, 303], true), 'esperava redirect, veio ' . $r->status . ' ' . substr($r->body, 0, 80));
-        return $this->get('/' . ltrim($r->location(), '/'));
-    }
-
-    public function sessionId(): string
-    {
-        return preg_match('/INTRANETSESSID\s+(\S+)/', (string) file_get_contents($this->jar), $m) ? $m[1] : '';
-    }
-}
+require __DIR__ . '/http_client.php';
 
 // ===================================================================================
 // Ambiente: dados temporários + servidor
@@ -185,28 +50,10 @@ foreach (['admin1' => 'admin', 'admin2' => 'admin', 'user1' => 'user', 'victim' 
     if (!$ok) { exit("setup falhou ($u): $msg\n"); }
 }
 
-$sock = stream_socket_server('tcp://127.0.0.1:0', $en, $es);
-$port = (int) substr(strrchr(stream_socket_get_name($sock, false), ':'), 1);
-fclose($sock);
 
-$server = proc_open(
-    [PHP_BINARY, '-d', 'post_max_size=1M', '-d', 'upload_max_filesize=1M', '-d', 'display_errors=0', '-d', "session.save_path=$tmp/sessions",
-     '-S', "127.0.0.1:$port", '-t', dirname(__DIR__) . '/public'],
-    [0 => ['pipe', 'r'], 1 => ['file', "$tmp/server.log", 'a'], 2 => ['file', "$tmp/server.log", 'a']],
-    $pipes,
-    null,
-    array_merge(getenv(), ['INTRANET_STORAGE' => $storage, 'INTRANET_DEBUG' => '0', 'INTRANET_FORCE_HTTPS' => '0'])
-);
-register_shutdown_function(function () use ($server, $tmp) {
-    if (is_resource($server)) { proc_terminate($server); proc_close($server); }
-    rrm($tmp);
-});
-for ($i = 0, $up = false; $i < 100 && !$up; $i++) {
-    $c = @fsockopen('127.0.0.1', $port, $e1, $e2, 0.2);
-    if ($c) { fclose($c); $up = true; } else { usleep(100000); }
-}
-if (!$up) { exit("servidor de teste não subiu (veja $tmp/server.log)\n"); }
-$base = "http://127.0.0.1:$port";
+require __DIR__ . '/http_server.php';
+
+$base = startServer($storage);
 fwrite(STDOUT, "Servidor de teste em $base\n");
 
 function login(string $user, string $pw = PW): Client
@@ -812,6 +659,59 @@ test('pasta com 400 arquivos lista em menos de 3 s e traz a autoria de todos', f
     check(substr_count($r->body, '<small>carga</small>') === 800, 'autoria incompleta');
     check($ms < 3000, sprintf('demorou %.0f ms', $ms));
     fwrite(STDOUT, sprintf("        (400 itens em %.0f ms)\n", $ms));
+});
+
+// ===================================================================================
+suite('Configurações do servidor (instâncias extras)');
+// ===================================================================================
+
+test('primeiro uso: storage inexistente é criado e a tela de login explica como criar o 1º usuário', function () use ($tmp) {
+    $st = "$tmp/primeiro-uso/storage";
+    $b = startServer($st);
+    $r = (new Client($b))->get('/');
+    check($r->status === 200 && strpos($r->body, 'Nenhum usuário cadastrado') !== false, 'sem o aviso de primeiro uso');
+    check(strpos($r->body, 'bin/create-user.php') !== false, 'sem a instrução do comando');
+    foreach (['uploads', 'trash', 'database.db'] as $item) {
+        check(file_exists("$st/$item"), "$item não foi criado");
+    }
+    $c = new Client($b);
+    $login = $c->follow($c->post('/', ['action' => 'login', 'user' => 'admin', 'pass' => 'qualquer']));
+    check(strpos($login->body, 'Usuário ou senha incorretos.') !== false, 'login sem usuários deveria falhar normalmente');
+});
+
+test('atrás de proxy HTTPS (INTRANET_FORCE_HTTPS=1): cookie Secure e HSTS', function () use ($tmp) {
+    $b = startServer("$tmp/https/storage", [], ['INTRANET_FORCE_HTTPS' => '1']);
+    $r = (new Client($b))->get('/');
+    check(stripos($r->h('set-cookie'), 'secure') !== false && stripos($r->h('set-cookie'), 'HttpOnly') !== false, 'cookie: ' . $r->h('set-cookie'));
+    check(strpos($r->h('strict-transport-security'), 'max-age=') === 0, 'HSTS: ' . $r->h('strict-transport-security'));
+    check($r->h('x-content-type-options') === 'nosniff', 'demais cabeçalhos continuam');
+});
+
+test('erro interno devolve 500 genérico, sem vazar caminho/stack; só INTRANET_DEBUG=1 mostra detalhes', function () use ($tmp) {
+    file_put_contents("$tmp/arquivo-no-lugar-da-pasta", 'x'); // storage aponta para um ARQUIVO: o banco não abre
+    $b = startServer("$tmp/arquivo-no-lugar-da-pasta");
+    $r = (new Client($b))->get('/');
+    check($r->status === 500, 'status ' . $r->status);
+    check(strpos($r->body, 'Erro interno') !== false, 'sem mensagem genérica: ' . substr($r->body, 0, 100));
+    foreach (['PDOException', 'Stack trace', '.php', 'arquivo-no-lugar-da-pasta', '#0'] as $leak) {
+        check(strpos($r->body, $leak) === false, "vazou \"$leak\" na página de erro");
+    }
+    $d = (new Client(startServer("$tmp/arquivo-no-lugar-da-pasta", [], ['INTRANET_DEBUG' => '1'])))->get('/');
+    check($d->status === 500 && strpos($d->body, '<pre>') !== false && strpos($d->body, 'PDOException') !== false, 'modo debug deveria detalhar o erro');
+});
+
+test('upload acima de upload_max_filesize (mas abaixo de post_max_size): conta como erro, os outros arquivos passam', function () use ($tmp) {
+    $st = "$tmp/upload-max/storage";
+    mkdir($st, 0775, true);
+    $seed = new Auth(Database::connect("$st/database.db"), new Logger(Database::connect("$st/database.db")), $GLOBALS['config']['auth']);
+    $seed->createUser('up_admin', PW, 'admin');
+    $b = startServer($st, ['post_max_size=8M', 'upload_max_filesize=1M']);
+    $c = new Client($b);
+    $c->follow($c->post('/', ['action' => 'login', 'user' => 'up_admin', 'pass' => PW]));
+    $r = $c->upload('/', ['grande.bin.txt' => str_repeat('x', 2 * 1024 * 1024), 'pequeno.txt' => 'ok']);
+    $j = json_decode($r->body, true);
+    check($j && $j['status'] === 'warning' && $j['msg'] === '1 enviados, 0 bloqueados, 1 com erro.', 'resposta: ' . $r->body);
+    check(is_file("$st/uploads/pequeno.txt") && !file_exists("$st/uploads/grande.bin.txt"), 'arquivos gravados incorretamente');
 });
 
 finish();

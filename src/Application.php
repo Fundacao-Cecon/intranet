@@ -54,6 +54,7 @@ final class Application
     public function run(): void
     {
         $this->configureErrors();
+        ob_start(); // avisos do PHP não podem fechar os headers antes de um erro 500 limpo
 
         try {
             $this->startSession();
@@ -180,6 +181,9 @@ final class Application
     private function handleFatal(Throwable $e): void
     {
         error_log((string) $e);
+        while (ob_get_level() > 0) { // descarta o que já foi escrito (avisos, HTML parcial)
+            ob_end_clean();
+        }
         if (!headers_sent()) {
             http_response_code(500);
         }

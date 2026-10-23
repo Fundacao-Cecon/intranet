@@ -32,5 +32,5 @@ function url(array $params = []): string
 function view(string $name, array $vars = []): void
 {
     extract($vars, EXTR_SKIP);
-    include BASE_PATH . '/src/Views/' . $name . '.php';
+    include __DIR__ . '/Views/' . $name . '.php';
 }

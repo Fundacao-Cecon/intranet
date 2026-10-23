@@ -1,144 +1,117 @@
 # Estratégia de testes
 
-Plano de testes da Intranet (PHP 7.4+/SQLite, sem framework), o que já existe, o que foi executado em 23/10/2026 e o que ainda falta.
+Plano de testes da Intranet (PHP 7.4+/SQLite, sem framework): o que existe, o que foi medido em 23/10/2026 e o que ainda falta.
 
 ## 1. Resumo
 
-| Camada | Suíte | Testes | Tempo | O que prova |
-|---|---|--:|--:|---|
-| Unitário | `tests/unit_test.php` | 39 | 4 s | Regras de `FileStorage`, `FileMeta`, `Logger`, `Auth` (usuários, senha, limites) e `Csrf`, sem servidor |
-| Login (com sessão real) | `tests/run.php` | 18 | 6 s | Expiração, teto absoluto, tempo de resposta, logs, bloqueio, cookie, tela de login |
-| Integração HTTP | `tests/http_test.php` | 45 | 20 s | Sistema **no ar** (`php -S`): login, listagem, download, ZIP, permissões, upload, lixeira, usuários, desempenho |
-| E2E no navegador | manual (roteiro abaixo) | — | — | JavaScript, modais, lightbox, upload com progresso, toasts, tema, celular |
-| **Total automatizado** | `php tests/all.php` | **102** | **30 s** | |
+| Camada | Suíte | Testes | O que prova |
+|---|---|--:|---|
+| Login com sessão real | `tests/run.php` (`login`) | 18 | Expiração, teto absoluto, tempo de resposta, logs, bloqueio, cookie, tela de login |
+| Unitário | `tests/unit_test.php` (`unit`) | 41 | `FileStorage`, `FileMeta`, `Logger`, `Auth`, `Csrf`, fronteiras do limite de tentativas |
+| Integração HTTP | `tests/http_test.php` (`http`) | 49 | Sistema **no ar**: login, listagem, download/Range, ZIP, permissões, upload, lixeira, usuários, desempenho, 4 configurações de servidor (primeiro uso, HTTPS forçado, erro 500, `upload_max_filesize`) |
+| Concorrência | `tests/concurrency_test.php` (`conc`) | 4 | Processos paralelos: nomes no upload, SQLite com 8 escritores, dois admins se excluindo |
+| Backup/restauração | `tests/backup_test.php` (`backup`) | 10 | Backup **com o sistema ligado**, manifest SHA-256, adulteração, restauração, sistema sobe na pasta restaurada |
+| Servidor real (script) | `tests/smoke_test.php` (`smoke`) | 4 | Prova que `bin/smoke.php` aprova docroot certo e **reprova docroot errado** |
+| JavaScript + acessibilidade | `tests/js_test.php` (`js`) | 53 | `app.js`/`theme.js`/`login.js` em jsdom, auditoria axe (WCAG 2.1 A/AA) de 6 telas, contraste 4,5:1 da paleta (claro/escuro) |
+| **Total automatizado** | `php tests/all.php` | **179** | ~95 s; verde em **PHP 7.4 e 8.3** |
+| Escritos antes do código | `tests/pending_phase2_test.php` (`p2`) | 7 `todo` | Fase 2 da ADR-0005; aparecem como "pend" e não reprovam |
+| Opt-in | `tests/large_test.php` (`large`) | 4 | Arquivo grande com `memory_limit=64M` no servidor |
+| Medição | `tests/coverage.php` | — | **96,0 %** das linhas de `src/` (1.004 de 1.046), com piso por arquivo crítico |
+| Estático | `phpstan.neon` | — | PHPStan **nível 5 sem erros** |
 
-Rodar: `php tests/all.php` (tudo) ou `php tests/all.php unit http` (só algumas). Requisitos: PHP com `pdo_sqlite`, `zip`, `curl`; nenhum pacote do Composer. Sai com código 1 se algo falhar (pronto para CI).
+Comandos: `php tests/all.php` · `php tests/all.php unit http` · `php tests/all.php large` · `php tests/all.php --list` · `php -d extension=pcov tests/coverage.php --min=90 --lines` · `php phpstan.phar analyse`. Detalhes de instalação em [operacao.md](operacao.md).
 
-Princípio: **a maior parte da confiança vem da camada HTTP**, porque o sistema é fino (controllers chamam serviços) e quase todo risco está na fronteira (permissão, caminho, sessão). Os unitários cobrem as regras que têm muitas combinações (nomes, caminhos, limites); o E2E cobre só o que o servidor não enxerga (JavaScript).
+Princípio: a confiança vem sobretudo da **camada HTTP** (o sistema é fino e o risco está na fronteira: permissão, caminho, sessão). Unitários cobrem regras com muitas combinações; processos paralelos cobrem o que HTTP serial não alcança; jsdom/axe cobrem o JavaScript e a acessibilidade sem navegador; o navegador real fica para o que nenhum desses vê (layout, contraste calculado).
 
-## 2. Como foi decidido o que testar (risco × impacto)
+## 2. Risco × impacto (o que foi priorizado)
 
-| Área | Impacto se falhar | Probabilidade | Prioridade | Tipo principal |
+| Área | Impacto | Prob. | Prio. | Cobertura principal |
 |---|---|---|---|---|
-| Permissão (user × admin), CSRF, login obrigatório | Alto: apagar/enviar arquivos sem direito | Média | **P0** | HTTP |
-| Caminhos (`?dir=`, `?file=`, upload, rename) | Alto: ler/gravar fora de `storage/` | Média | **P0** | Unitário + HTTP |
-| Sessão, bloqueio de login, senha | Alto: invasão | Média | **P0** | Login + HTTP |
-| Download/ZIP/Range | Médio: vazamento ou arquivo corrompido | Média | **P1** | HTTP |
-| Lixeira e metadados (restaurar, renomear pasta) | Médio: perda de dados | Média | **P1** | HTTP + unitário |
-| Upload (extensões, colisão, 413) | Médio | Média | **P1** | HTTP |
-| Listagem/escape HTML (XSS) | Alto | Baixa | **P1** | HTTP |
-| JavaScript (modais, upload, ZIP, busca) | Médio: UI quebrada | Média | **P2** | E2E navegador |
-| Layout/responsivo/acessibilidade | Baixo-médio | Alta | **P2** | E2E manual |
-| Configuração de servidor (Apache/IIS, PHP.ini) | Alto | Média | **P1** | Smoke no servidor real (ver §6) |
+| Permissão (user × admin), CSRF, login obrigatório | Alto | Média | P0 | HTTP |
+| Caminhos (`?dir=`, `?file=`, upload, rename) | Alto | Média | P0 | Unitário + HTTP |
+| Sessão, bloqueio de login, senha | Alto | Média | P0 | Login + HTTP + unit |
+| Perda de dados: lixeira, metadados, backup | Alto | Média | P0 | HTTP + backup |
+| Concorrência (uploads, SQLite, admins) | Médio-alto | Baixa | P1 | conc |
+| Download/ZIP/Range, upload (extensões, colisão, 413) | Médio | Média | P1 | HTTP + large |
+| Escape de HTML (XSS) | Alto | Baixa | P1 | HTTP + JS |
+| JavaScript, teclado, acessibilidade, contraste | Médio | Média | P2 | js |
+| Configuração do servidor (docroot, `php.ini`) | Alto | Média | P1 | `bin/smoke.php` |
 
-Foco: caminhos críticos de negócio, tratamento de erro, bordas, fronteiras de segurança e integridade de dados. Fora de escopo: getters triviais, o próprio PHP/SQLite.
+## 3. Como cada lacuna da seção 6 original foi tratada
 
-## 3. O que cada suíte cobre
-
-### 3.1 Unitários (`unit_test.php`)
-- **FileStorage:** `resolve` com 20 tentativas de fuga (`..`, `....//`, `%2f`, barra invertida, byte nulo, caminho absoluto, `C:\`, UNC, irmã com mesmo prefixo, symlink*); `safeItem`, `cleanName`, `uniqueName`, `isHidden`, `metaPath`, `listDir` (ordem natural, ocultos), `delete` recursivo.
-- **FileMeta:** autoria em lote (>500 itens), renomear pasta leva os filhos sem tocar nas irmãs de prefixo (`Doc` × `Docs`), curingas `%` e `_` no nome, `removed`, origem da lixeira.
-- **Logger:** truncamento em 500, usuário via provedor, `purge` por idade.
-- **Auth:** `createUser` (login válido/inválido, role, senha curta, duplicado, tentativa de SQL injection), `resetPassword`, `changePassword`, `deleteUser` (si mesmo, inexistente, não expõe hash), limite de tentativas nas fronteiras (4 ok, 5ª bloqueia, por IP, expira, caixa).
-- **Csrf:** formato, estabilidade, `regenerate`, aceitar campo e header, recusar ausente/errado/vazio/array.
-- \*O teste de symlink é pulado no Windows sem privilégio; roda em Linux/CI.
-
-### 3.2 Login com sessão real (`run.php`)
-Troca de ID no login, expiração ociosa **sem perder o token CSRF** (era o 419 do review), aviso "Sua sessão expirou", teto absoluto de 12 h, usuário apagado, logout, tempo de resposta igual para login inexistente, hash fictício com mesmo custo, log sem texto digitado, 1 log de bloqueio por janela, `gc_maxlifetime`/cookie em processo isolado, tela de login (botões, `?form=change`).
-
-### 3.3 Integração HTTP (`http_test.php`)
-Sobe `php -S` numa porta livre com `post_max_size=1M` e `display_errors=0` (como produção), dados temporários e 7 usuários.
-- **Infra:** cabeçalhos de segurança, cookie HttpOnly/SameSite, 16 caminhos internos → 404 (`/database.db`, `/src/…`, `/.git/config`, `%2e%2e`…), assets, GET de ação de escrita não executa, 419, 413 (JSON se XHR), POST `text/plain` não vira 413.
-- **Login/sessão:** mesma mensagem para senha errada e usuário inexistente, anti-fixation, bloqueio, logout invalida o cookie, troca de senha (pública e logada), expiração (envelhecendo o arquivo de sessão), usuário apagado perde a sessão.
-- **Listagem:** ocultos, escape de `'` e `&`, breadcrumb, traversal em 14 variações, `mode=trash`, elementos de admin ausentes para `user`.
-- **Download/ZIP:** inline só para tipos permitidos, SVG sempre baixa, `filename*=UTF-8`, `Range` (206, sufixo, aberto, 416, inválido), 11 variações de arquivo proibido, lixeira só admin, ZIP só com itens válidos (inclusive ocultos da raiz), log de download.
-- **Permissões:** usuário comum tenta as 9 ações de admin: todas negadas, **disco e banco idênticos antes/depois**.
-- **Admin:** pasta (nomes inválidos), upload (`.exe`, `.php`, `.phtml`, `.htaccess`, `web.config` bloqueados; colisão `(1)`; nome com `../`; `shell.php.jpg` nunca executa), renomear, ciclo completo da lixeira (restaurar na origem, na raiz, nome ocupado, purge, esvaziar), usuários, logs com HTML malicioso escapado, hash nunca no HTML, 400 itens em ~0,2 s.
-
-### 3.4 E2E no navegador (executado 23/10/2026, Chromium do app)
-| Verificação | Resultado |
+| Lacuna | Resultado |
 |---|---|
-| Login: alternar para "Nova Senha" e voltar, tema escuro persiste após reload, erro de senha | ok |
-| Painel Master → Usuários → voltar; clique no fundo fecha; modal de senha | ok |
-| Busca filtra; "Renomear" pré-preenche; ZIP mostra "Baixar N (ZIP)"; selecionar todos | ok |
-| Miniatura e lightbox (imagem carrega, fecha pelo X e pelo fundo) | ok |
-| Upload de 2 arquivos (1 permitido + `.exe`): barra 100 %, toast "1 enviados, 1 bloqueados.", recarrega e mostra autor | ok |
-| Mover para lixeira → toast; lixeira → restaurar volta à pasta original; excluir definitivo com confirmação | ok |
-| Perfil comum: nenhum controle de admin, `?mode=trash` ignorado | ok |
-| Console do navegador sem erros | ok |
-| **Celular (375 px)** | **falhou** → corrigido (ver §5) |
+| Cobertura de linhas não medida | ✅ PCOV instalado; `tests/coverage.php` mescla processos (inclusive o servidor HTTP e os CLI). **96,0 %** total; pisos: `FileStorage`/`FileMeta`/`Csrf`/`Auth`/`Application` ≥ 95 %, `FilesController`/`TrashController` ≥ 90 %, `Backup` ≥ 85 %. O que sobra descoberto são ramos de falha do sistema operacional (`rename()`/`mkdir()` falhando) e linhas `}` |
+| Sem CI | ✅ `.github/workflows/tests.yml`: PHP 7.4/8.1/8.3/8.4 (Ubuntu) + 8.3 (Windows), cobertura (meta 90 %), PHPStan, job manual de arquivo grande. **Não foi executado no GitHub** (só validado como YAML e reproduzido localmente) |
+| PHP 7.4 nunca executado | ✅ PHP 7.4.33 instalado em `D:\php74`; as 179 verificações passam. Achado: `proc_open` com string quebra no `cmd.exe` do 7.4 (corrigido, usa array) |
+| Servidor real (Apache/IIS) | 🟡 `bin/smoke.php <url>`: 40+ verificações só por HTTP (docroot, 20 caminhos internos, cabeçalhos, cookie, HSTS, `display_errors`, login opcional). Testado contra instalação certa e **errada**. **Falta rodar no servidor de verdade** |
+| JavaScript só à mão | ✅ jsdom sobre o HTML real de cada tela. Playwright (navegador real automatizado) **não foi instalado** (~200 MB); o roteiro manual de 23/10 continua válido |
+| Upload grande / Range | 🟡 `large_test.php`: 40 MB com servidor a 64 MB de memória: tamanho e SHA-256 idênticos, Range correto, download a ~300 MB/s. O servidor embutido do PHP no Windows recebe uploads a ~1 MB/s (300 MB passa de 15 min), então **medir em Apache/IIS** |
+| Concorrência | ✅ `conc` + 2 defeitos corrigidos (ver §5) |
+| Backup/restauração | ✅ `bin/backup.php`, `bin/restore.php`, `App\Backup` com manifest e verificação; 10 testes |
+| Acessibilidade | ✅ axe: 6 telas sem violações (eram 8 tipos); contraste: 8 combinações corrigidas; Esc, foco e `role=dialog` nos modais |
+| Fase 2 da ADR-0005 | ✅ 7 testes escritos antes do código (`todo`), já mostrando a falha real (ex.: 30 tentativas simultâneas gravam 10 falhas, não 5) |
+| Análise estática | ✅ PHPStan nível 5 limpo. Nível 6 aponta 41 itens (tipos de array); nível 8, 77 |
 
-## 4. Qualidade dos próprios testes (teste de mutação)
+## 4. Qualidade dos próprios testes (mutação)
 
-Para provar que os testes pegam defeitos, 20 regras críticas foram quebradas de propósito, uma por vez, numa cópia do código:
+Regras críticas foram quebradas de propósito numa cópia do código, uma por vez:
 
-- **19 de 20 mutantes mortos** (a suíte falhou): traversal em `resolve`, `safeItem` com array, `removed()` sem barra, `LIKE` sem escape, CSRF desligado, `requireAdmin` desligado, download sem login, SVG liberado, ocultos no download e no ZIP, XSS na listagem, restaurar ignorando a origem, lixeira sobrescrevendo, upload sem lista de extensões, `Range` ignorado, cookie sem HttpOnly, role livre, autoexclusão, token CSRF vazio.
-- **2 sobreviveram na 1ª rodada** e viraram teste (ZIP com ocultos de verdade; `LIKE` — erro do script).
-- **1 equivalente:** comparar o prefixo do `realpath` sem `/` final. Só se manifesta com um symlink dentro de `uploads/` apontando para uma pasta irmã; no Windows sem privilégio não dá para provar. Fica coberto no CI Linux.
+- **Rodada 1 (20 mutantes de segurança):** 19 mortos; 1 **equivalente** (prefixo do `realpath` sem `/` final: só se manifesta com symlink, que o Windows sem privilégio não cria; coberto no CI Linux). Dois sobreviventes iniciais viraram teste.
+- **Login:** hash fictício, log com texto digitado, bloqueio sem dedupe, teto absoluto, `session_destroy` na expiração: todos mortos. O teste de tempo foi trocado por **medianas relativas** depois de ficar instável sob carga.
+- **Contraste:** voltar o azul antigo no botão Entrar derruba `contrast.test.js`.
+- **Limite conhecido:** a escolha de `reserveName` no controller de upload não é detectada por mutação (processos paralelos não passam pelo servidor embutido no Windows); é coberta por revisão e pelo teste da função.
 
-Meta: **mutation score ≥ 90 %** nas regras de segurança (atual: 95 %).
+Meta: **mutation score ≥ 90 %** nas regras de segurança.
 
-## 5. Defeitos encontrados nesta rodada
+## 5. Defeitos encontrados (e estado)
 
-| # | Defeito | Como apareceu | Estado |
+| # | Defeito | Achado por | Estado |
 |---|---|---|---|
-| 1 | `?file[]=x` virava a string "Array" (aviso do PHP) | unitário `safeItem` | **corrigido** (`FileStorage::safeItem` recusa não-string) |
-| 2 | Qualquer POST com corpo não-formulário (ex.: `text/plain`) respondia "arquivo excede `post_max_size`" | HTTP | **corrigido** (`Application::dispatch` compara `CONTENT_LENGTH` com o limite real) |
-| 3 | Com `display_errors=On` o aviso de startup do PHP vai para o corpo: status 200 em vez de 413 e JSON quebrado no upload gigante | HTTP | **mitigado**: `display_errors = Off` em `public/.user.ini`; documentar no `php.ini` de produção |
-| 4 | Celular: colunas cortadas por `overflow:hidden`, botão **Sair** e ações inacessíveis | E2E 375 px | **corrigido** (`@media (max-width:768px)` em `app.css`) |
-| 5 | Toast de aviso (`.toast.warning`) sem estilo (só `success`/`error` têm borda colorida) | E2E | pendente (cosmético) |
-| 6 | Guarda "não excluir o último admin" nunca dispara pela interface (quem exclui já é admin); e dois admins podem se excluir ao mesmo tempo e deixar zero | análise | pendente (risco baixo; resolver com transação) |
+| 1 | `?file[]=x` virava a string "Array" | unitário | corrigido |
+| 2 | POST `text/plain` pequeno respondia "arquivo excede o limite" | HTTP | corrigido |
+| 3 | `display_errors=On` fazia o upload gigante responder 200 com JSON quebrado | HTTP | mitigado (`.user.ini`) |
+| 4 | Celular: colunas cortadas, **Sair** inalcançável | navegador | corrigido |
+| 5 | **Uploads simultâneos com o mesmo nome se sobrescreviam em silêncio** (8 uploads viravam 2 arquivos) | concorrência | **corrigido**: `FileStorage::reserveName` reserva o nome com `fopen('x')` |
+| 6 | Dois admins podiam se excluir ao mesmo tempo e deixar o sistema sem admin | análise + conc | **corrigido**: `deleteUser` em `BEGIN IMMEDIATE` |
+| 7 | Em modo debug o erro 500 saía com status 200 (aviso do PHP fechava os cabeçalhos) | HTTP | **corrigido**: buffer de saída em `Application::run` |
+| 8 | Campos de login sem rótulo; botões de ícone sem nome; select sem nome; modais sem `role` | axe | **corrigido** |
+| 9 | 8 combinações abaixo de 4,5:1 (links e botões azuis, verde e azul do Painel Master, tema escuro) | axe no navegador | **corrigido** (paleta separada em texto × fundo) |
+| 10 | `app.js` usava `innerText` (frágil); sem Esc e sem retorno de foco nos modais | jsdom | **corrigido** |
+| 11 | Scripts de `bin/` saíam com código 0 em erro de uso | smoke | **corrigido** (código 2) |
+| 12 | `proc_open` com string falha no PHP 7.4 do Windows | PHP 7.4 | corrigido (nos testes) |
+| 13 | **Corrida no limite de tentativas**: 30 tentativas simultâneas gravam 10 falhas em vez de 5 | `p2` (todo) | **aberto**: Fase 2 da ADR-0005 (`BEGIN IMMEDIATE`) |
+| 14 | Toast de aviso sem estilo próprio | navegador | aberto (cosmético) |
+| 15 | `rename()` e restaurar da lixeira ainda têm janela de corrida minúscula (checar e mover) | análise | aberto, risco baixo; só o upload tinha janela longa |
 
-## 6. Lacunas e próximos passos
+## 6. Lacunas e próximos passos (o que sobrou)
 
-| Lacuna | Risco | Ação sugerida | Prioridade |
+| Lacuna | Risco | Ação | Prio. |
 |---|---|---|---|
-| **Cobertura de linhas** não medida (sem Xdebug/PCOV) | Não se sabe o que não é executado | Instalar PCOV no CI; meta **≥ 85 % linhas** em `src/` e 100 % em `FileStorage`, `Auth`, `Csrf`, `Application::dispatch` | Alta |
-| **Sem CI** | Regressão entre commits | Workflow rodando `php tests/all.php` em PHP **7.4, 8.1, 8.3** (Ubuntu, com symlink) a cada push/PR | Alta |
-| PHP 7.4 nunca executado | Quebra no servidor real | Matriz do CI | Alta |
-| Servidor real (Apache/IIS): `.htaccess`, `web.config`, docroot, `php.ini` | Exposição de `src/`, `storage/` | **Smoke no servidor**: roteiro de [pendencias.md](pendencias.md) + `curl -I` nos 16 caminhos da §3.3 | Alta |
-| JavaScript só testado à mão | Regressão silenciosa de UI | Playwright (login → painel → upload → lixeira) no CI; 1 teste por fluxo do [fluxos.md](fluxos.md) | Média |
-| Upload grande (centenas de MB), `Range` de vídeo em player real | Timeout/memória | Teste manual com 500 MB e MP4; medir memória | Média |
-| Concorrência (dois admins, upload simultâneo, SQLite `locked`) | Perda de metadado | Teste com N processos paralelos escrevendo em `files_meta`/`logs` | Média |
-| Backup/restauração de `storage/` | Perda de dados | Exercício trimestral: restaurar numa pasta nova e subir o sistema | Média |
-| Acessibilidade (WCAG 2.1 AA) | Usuários com limitação | Auditoria com axe; foco visível, contraste do tema escuro, rótulos de modal | Média |
-| Fases 2/3 da ADR-0005 (limite por IP, `auth_version`, política de senha) | — | **Escrever os testes antes** (TDD): ver exemplos abaixo | Alta (quando implementar) |
-| Análise estática | Bugs de tipo | PHPStan nível 5 no CI | Baixa |
+| **CI nunca rodou no GitHub** | Falha só visível no 1º push | Subir a branch e conferir os 4 jobs; ajustar versões das actions se preciso | Alta |
+| **Servidor real** (Apache/IIS, docroot, `php.ini`, HSTS) | Exposição de `src/`, `storage/` | Rodar `php bin/smoke.php https://intranet…` e `--login`; tratar todo FAIL | Alta |
+| Fase 2 da ADR-0005 | Limite por IP, corrida, `auth_version`, senha, maiúsculas | Implementar até os 7 `todo` virarem `test()` | Alta |
+| Upload grande em servidor de verdade | Timeout/memória não medidos fora do `php -S` | `php tests/large_test.php --mb=500` contra Apache/IIS (apontando para a URL de teste) | Média |
+| Navegador real automatizado (Playwright) | Layout/contraste calculados só à mão | Instalar `@playwright/test` no CI; reaproveitar o roteiro da §7 | Média |
+| `rename()`/restaurar atômicos | Sobrescrita em corrida rara | Reservar o destino como no upload | Baixa |
+| PHPStan nível 6+ | Tipos de array sem anotação | Anotar `@param array<…>`; subir nível aos poucos | Baixa |
+| Toast de aviso | Cosmético | Estilo `.toast.warning` | Baixa |
 
-## 7. Casos de teste de exemplo para o que vem a seguir
+## 7. Roteiro manual no navegador (referência)
 
-Escritos no mesmo formato das suítes (`test('nome', fn)`), prontos para virar código quando a funcionalidade existir.
-
-**ADR-0005 Fase 2 (login)**
-1. *Spraying:* 31 tentativas erradas, de logins diferentes, do mesmo IP ⇒ a 31ª (certa) é bloqueada; outro IP não é afetado.
-2. *Limite por usuário não vira DoS:* 25 falhas de IPs diferentes contra `admin1` ⇒ `LOGIN_ALERTA` no log, mas o `admin1` legítimo ainda entra.
-3. *Corrida:* 50 requisições paralelas de senha errada ⇒ no máximo 5 contam antes do bloqueio (transação).
-4. *`auth_version`:* sessão A e B do mesmo usuário; A troca a senha ⇒ B cai na próxima requisição; A continua logada com ID novo.
-5. *Senha temporária:* `bin/create-user.php --reset` liga `must_change_password` ⇒ login redireciona para a tela de troca e bloqueia o resto até trocar.
-6. *Política:* `12345678`, `password`, igual ao login e `qwertyui` ⇒ recusadas; `Tr0ca-Segura-2026` ⇒ aceita.
-7. *Maiúsculas:* criar `Adm` quando existe `adm` ⇒ recusado; login `ADM` entra na conta `adm`.
-
-**Arquivos**
-8. *Symlink:* `uploads/saida -> ..` ⇒ `?dir=saida` cai na raiz (roda só em CI Linux).
-9. *Arquivo de 600 MB:* upload via XHR conclui sem estourar `memory_limit` (256 M).
-10. *Dois admins, mesmo nome:* upload simultâneo de `a.txt` ⇒ um fica `a.txt`, o outro `a (1).txt`, sem sobrescrever.
-11. *Restore em cascata:* excluir `Pasta/Sub/arq.txt`, depois `Pasta/Sub`, depois `Pasta`; restaurar na ordem inversa ⇒ árvore idêntica à original.
-
-**Operação**
-12. *Backup:* copiar `storage/` com o sistema ligado, restaurar em outra pasta, subir ⇒ login, listagem e autoria idênticos.
+Executado em 23/10/2026 no Chromium do app, sem erros de console: login (alternar formulários, tema, erro), Painel Master → Usuários → voltar, fundo fecha, busca, renomear, ZIP, miniatura/lightbox, upload com barra e toast, lixeira (mover/restaurar na origem/excluir), perfil comum, **celular 375 px** e contraste (axe, claro e escuro, com modais abertos).
 
 ## 8. Critérios de saída (pronto para publicar)
 
-- `php tests/all.php` verde em **PHP 7.4 e 8.3**, em Linux e Windows.
-- Cobertura de linhas ≥ 85 % (≥ 95 % nos arquivos P0); mutation score ≥ 90 % nas regras de segurança.
-- Roteiro de fumaça rodado **no servidor real** com `curl -I` dos caminhos internos devolvendo 404/403.
-- Playwright (ou roteiro manual da §3.4) sem falhas, inclusive em 375 px.
-- Nenhum item P0/P1 aberto na §5/§6.
+- `php tests/all.php` verde em **PHP 7.4 e 8.3**, Linux e Windows (CI).
+- Cobertura ≥ 90 % com os pisos de `tests/coverage.php`; PHPStan sem erros.
+- `bin/smoke.php` **sem FAIL** no servidor real (WARN revisados).
+- Nenhum defeito P0/P1 aberto em §5 e §6.
 
-## 9. Convenções para novos testes
+## 9. Convenções
 
-- Todo bug corrigido ganha um teste que **falha sem a correção** (confira por mutação, como na §4).
-- Teste de segurança verifica o **efeito** (disco, banco, corpo da resposta), não só o status.
-- Dados só em pasta temporária (`mktmp()`); nunca `storage/` real. Usuários e senhas de teste ficam no código do teste.
-- Um teste = uma regra de negócio, com nome em português que descreve o comportamento esperado.
-- Testes HTTP usam um cliente novo por cenário que mexe em sessão/bloqueio, para não vazar estado entre testes.
+- Todo bug corrigido ganha teste que **falha sem a correção** (confira por mutação).
+- Teste de segurança verifica o **efeito** (disco, banco, corpo), não só o status.
+- Dados só em pasta temporária (`mktmp()`); nunca o `storage/` real; usuários e senhas de teste só no código do teste.
+- Funcionalidade nova começa por `todo()` e vira `test()` quando passar.
+- Teste de tempo usa **medianas e razões**, nunca limites absolutos.

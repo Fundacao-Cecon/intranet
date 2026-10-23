@@ -186,12 +186,13 @@ final class FilesController extends Controller
                     $this->ctx->logger->log('BLOQUEIO', $nome);
                     continue;
                 }
-                $final = $s->uniqueName($absDir, $nome);
+                $final = $s->reserveName($absDir, $nome); // reserva atômica: uploads simultâneos não se sobrescrevem
                 if (move_uploaded_file($f['tmp_name'][$i], $absDir . $final)) {
                     $this->ctx->meta->created($s->metaPath($area, $sub, $final), (string) $this->ctx->auth->username());
                     $this->ctx->logger->log('UPLOAD', $final);
                     $suc++;
                 } else {
+                    @unlink($absDir . $final); // desistiu: não deixa o arquivo vazio reservado
                     $falha++;
                 }
             }

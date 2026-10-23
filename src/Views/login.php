@@ -26,8 +26,8 @@
             <form method="POST">
                 <?= App\Csrf::field() ?>
                 <input type="hidden" name="action" value="login">
-                <div style="text-align:left;"><label>Usuário</label><input type="text" name="user" required autofocus autocomplete="username"></div>
-                <div style="text-align:left;"><label>Senha</label><input type="password" name="pass" required autocomplete="current-password"></div>
+                <div style="text-align:left;"><label for="login-user">Usuário</label><input type="text" id="login-user" name="user" required autofocus autocomplete="username"></div>
+                <div style="text-align:left;"><label for="login-pass">Senha</label><input type="password" id="login-pass" name="pass" required autocomplete="current-password"></div>
                 <button type="submit" class="btn-login">Entrar</button>
             </form>
             <button type="button" class="link-action" data-toggle-forms>Alterar Senha</button>
@@ -38,9 +38,9 @@
             <form method="POST">
                 <?= App\Csrf::field() ?>
                 <input type="hidden" name="action" value="change_password">
-                <div style="text-align:left;"><label>Seu Usuário</label><input type="text" name="user_change" required autocomplete="username"></div>
-                <div style="text-align:left;"><label>Senha Atual</label><input type="password" name="pass_old" required autocomplete="current-password"></div>
-                <div style="text-align:left;"><label>Nova Senha</label><input type="password" name="pass_new" required minlength="8" autocomplete="new-password"></div>
+                <div style="text-align:left;"><label for="chg-user">Seu Usuário</label><input type="text" id="chg-user" name="user_change" required autocomplete="username"></div>
+                <div style="text-align:left;"><label for="chg-old">Senha Atual</label><input type="password" id="chg-old" name="pass_old" required autocomplete="current-password"></div>
+                <div style="text-align:left;"><label for="chg-new">Nova Senha</label><input type="password" id="chg-new" name="pass_new" required minlength="8" autocomplete="new-password"></div>
                 <button type="submit" class="btn-login">Salvar</button>
             </form>
             <button type="button" class="link-action" data-toggle-forms>Voltar ao Login</button>

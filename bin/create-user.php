@@ -22,7 +22,7 @@ use App\Logger;
 $login = $argv[1] ?? '';
 $arg2 = $argv[2] ?? 'user';
 if ($login === '') {
-    exit("Uso: php bin/create-user.php <login> [admin|user|--reset]\n");
+    fwrite(STDERR, "Uso: php bin/create-user.php <login> [admin|user|--reset]\n"); exit(2);
 }
 
 $password = getenv('INTRANET_NEW_PASSWORD');

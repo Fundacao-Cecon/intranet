@@ -1,13 +1,19 @@
 # Pendências e itens não verificados
 
-## Verificado (23/10/2026, PHP 8.3.36 em `D:\php`, servidor embutido, cópia do banco)
-`php -l` limpo nos 22 arquivos PHP; `node --check` nos 3 JS. Roteiro de fumaça executado por HTTP (curl) com **dados de teste isolados**, passou em: login anônimo → tela de login; `database.db`, `src/`, `config/`, `storage/`, `uploads/` → 404; POST sem CSRF → 419; bloqueio após 5 falhas (inclusive com a senha certa); download inline só de txt/pdf/imagem, SVG sempre como `attachment`; `Range` 206; traversal (`../`, `....//`, `%2f`) cai na raiz; mkdir, upload (`.exe` bloqueado), renomear pasta com metadados dos filhos, mover para lixeira, restaurar **na pasta original**, restaurar na raiz quando a original sumiu, purge, esvaziar; ZIP; criar usuário (senha curta e role inválida recusadas); usuário comum sem botões de admin e com POSTs de admin negados; troca de senha; logout; usuário apagado perde a sessão na hora.
+## Verificado (23/10/2026)
+
+- **179 testes automatizados** (`php tests/all.php`) verdes em **PHP 8.3.36 e 7.4.33**; cobertura de linhas **96,0 %**; PHPStan nível 5 sem erros. Detalhes em [estrategia-de-testes.md](estrategia-de-testes.md).
+- Roteiro manual no navegador (JS, modais, upload, lixeira, perfil comum, celular, contraste claro/escuro) sem erros.
+- Backup com o sistema ligado, verificação por SHA-256 e restauração, com o sistema subindo na pasta restaurada.
+- `bin/smoke.php` aprova instalação certa e **reprova docroot errado**.
 
 ## Não verificado
-- **PHP 7.4** (versão mínima declarada): só foi executado no 8.3. Confirmar a versão real do servidor.
-- **Navegador:** o JavaScript (`app.js`) só passou em `node --check`; modais, lightbox, barra de progresso do upload e o tema escuro não foram clicados num navegador real.
-- **Apache/IIS reais:** `.htaccess`, `web.config` e o redirecionamento de docroot não foram testados (não há servidor web nesta máquina).
-- **Uploads grandes** (centenas de MB) e vídeo com `Range` num player real.
+
+- **Servidor real (Apache/IIS):** `.htaccess`, `web.config`, docroot em `public/`, `php.ini`, HSTS atrás de proxy. Rode `php bin/smoke.php <url>` lá.
+- **GitHub Actions:** o workflow foi validado como YAML e reproduzido localmente, mas nunca executou no GitHub.
+- **Upload grande fora do `php -S`:** só 40 MB foram medidos (o servidor embutido do Windows recebe a ~1 MB/s); `php tests/large_test.php --mb=500` precisa rodar contra Apache/IIS.
+- **Navegador real automatizado (Playwright):** não instalado; o roteiro manual vale por enquanto.
+- **Linux:** o teste de symlink é pulado no Windows sem privilégio; roda no CI.
 
 ## Roteiro de fumaça (para repetir no servidor real)
 1. `php -S localhost:8000 -t public` → tela de login aparece, sem erro no console.

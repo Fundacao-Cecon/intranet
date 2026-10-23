@@ -15,6 +15,7 @@ public/index.php
         │    ├─ FileStorage      TODO acesso ao disco: caminhos seguros, nomes, listagem
         │    └─ FileMeta         quem criou/editou; origem dos itens da lixeira
         ├─ Auth, Csrf, Logger, Database
+        ├─ Backup                backup/restauração do storage (usada por bin/backup.php e bin/restore.php)
         └─ Views/                templates PHP (somente apresentação)
 ```
 

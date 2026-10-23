@@ -170,23 +170,28 @@ test('logout encerra a sessão', function () {
 // --- 3. achado 4: enumeração por tempo ------------------------------------------------
 
 test('login inexistente gasta o mesmo tempo de bcrypt que senha errada de login real', function () {
-    $n = 8;
-    $known = $unknown = 0.0;
+    // Medianas de 15 amostras, comparação RELATIVA: não depende de a máquina estar ociosa.
+    // Sem o hash fictício o inexistente leva ~1 ms contra ~50 ms do existente (razão ~0,02).
+    $n = 15;
+    $known = $unknown = [];
     for ($i = 0; $i < $n; $i++) {
         ip("10.1.0.$i"); // IP diferente a cada tentativa: evita bloqueio
         $t = microtime(true);
         req(null, fn() => newAuth()->attempt('ana', 'errada-' . $i));
-        $known += microtime(true) - $t;
+        $known[] = (microtime(true) - $t) * 1000;
 
         ip("10.2.0.$i");
         $t = microtime(true);
         req(null, fn() => newAuth()->attempt('nao_existe_' . $i, 'errada-' . $i));
-        $unknown += microtime(true) - $t;
+        $unknown[] = (microtime(true) - $t) * 1000;
     }
-    $known = $known / $n * 1000;
-    $unknown = $unknown / $n * 1000;
-    check($unknown > 15, sprintf('login inexistente só levou %.1f ms: password_verify não rodou', $unknown));
-    check(abs($known - $unknown) < 30, sprintf('diferença de tempo %.1f ms (existente %.1f / inexistente %.1f)', abs($known - $unknown), $known, $unknown));
+    sort($known);
+    sort($unknown);
+    $mk = $known[intdiv($n, 2)];
+    $mu = $unknown[intdiv($n, 2)];
+    check($mk > 10, sprintf('login existente levou só %.1f ms: bcrypt não rodou nem para ele', $mk));
+    check($mu >= 0.6 * $mk, sprintf('login inexistente %.1f ms contra %.1f ms do existente: password_verify não rodou (enumeração por tempo)', $mu, $mk));
+    check($mu <= 1.8 * $mk, sprintf('login inexistente %.1f ms, bem mais lento que o existente (%.1f ms)', $mu, $mk));
 });
 
 test('hash fictício tem o mesmo custo dos hashes reais', function () use ($db) {
@@ -256,7 +261,7 @@ test('bloqueio de login inexistente também é registrado uma vez, sem o texto d
 
 function sessionIni(array $env): array
 {
-    $cmd = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/fixtures/session_ini.php');
+    $cmd = [PHP_BINARY, __DIR__ . '/fixtures/session_ini.php']; // array: sem shell (cmd.exe do Windows quebra aspas no PHP 7.4)
     $spec = [1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
     $proc = proc_open($cmd, $spec, $pipes, null, array_merge(getenv(), $env));
     $out = stream_get_contents($pipes[1]);

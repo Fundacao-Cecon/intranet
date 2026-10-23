@@ -394,6 +394,27 @@ test('nomes gigantes e estranhos não quebram nem enchem a tabela', function () 
     check($len <= 100, "username gravado com $len caracteres");
 });
 
+test('changePassword também respeita o bloqueio por tentativas (não vira atalho para adivinhar a senha)', function () use ($mk, $db) {
+    $db->exec('DELETE FROM login_attempts');
+    $_SERVER['REMOTE_ADDR'] = '10.9.0.1';
+    $a = $mk();
+    for ($i = 0; $i < 5; $i++) {
+        check($a->changePassword('maria', 'errada-' . $i, 'NovaSenha-123') === [false, 'Dados inválidos.'], "tentativa $i");
+    }
+    [$ok, $msg] = $a->changePassword('maria', 'Outra-Senha-9', 'NovaSenha-123');   // a senha atual CERTA
+    check($ok === false && strpos($msg, 'Muitas tentativas') !== false, 'bloqueado, mesmo com a senha atual certa: ' . $msg);
+    check($a->attempt('maria', 'Outra-Senha-9')[0] === false, 'o bloqueio vale também para o login (mesma chave)');
+});
+
+test('sessão antiga sem login_at passa a contar a partir do primeiro acesso (não cai)', function () use ($mk, $db) {
+    $id = (int) $db->query("SELECT id FROM users WHERE username='maria'")->fetchColumn();
+    $_SESSION = ['user_id' => $id, 'last_activity' => time()];   // sem login_at
+    $u = $mk()->user();
+    check($u !== null && $u['username'] === 'maria', 'sessão válida foi derrubada');
+    check(isset($_SESSION['login_at']) && abs($_SESSION['login_at'] - time()) <= 2, 'login_at não foi preenchido');
+    $_SESSION = [];
+});
+
 // =====================================================================================
 suite('Csrf');
 // =====================================================================================

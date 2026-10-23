@@ -51,12 +51,12 @@ flowchart TD
 
 | Passo | Código |
 |---|---|
-| Ponto de entrada | `public/index.php` → `Application::run` (`src/Application.php:L54-L67`) |
-| Erros, sessão, headers | `configureErrors` L153-L163 · `startSession` L127-L145 (cookie `INTRANETSESSID`, HttpOnly, SameSite=Lax, Secure em HTTPS ou com `INTRANET_FORCE_HTTPS=1`; `gc_maxlifetime` = 8 h) · `isHttps` L148-L151 · `sendSecurityHeaders` L153-L162 (inclui HSTS em HTTPS) |
-| Serviços | `buildContext` L107-L125 (conecta SQLite, cria tabelas, sorteia limpeza de logs 1/50) |
-| Roteamento | `dispatch` L69-L105 · tabelas `GET_ROUTES` L22 / `POST_ROUTES` L28 / `PUBLIC_ACTIONS` L44 |
+| Ponto de entrada | `public/index.php` → `Application::run` (`src/Application.php:L54-L68`) |
+| Erros, sessão, headers | `configureErrors` L169-L179 · `startSession` L132-L150 (cookie `INTRANETSESSID`, HttpOnly, SameSite=Lax, Secure em HTTPS ou com `INTRANET_FORCE_HTTPS=1`; `gc_maxlifetime` = 8 h) · `isHttps` L153-L156 · `sendSecurityHeaders` L158-L167 (inclui HSTS em HTTPS) |
+| Serviços | `buildContext` L112-L130 (conecta SQLite, cria tabelas, sorteia limpeza de logs 1/50) |
+| Roteamento | `dispatch` L70-L110 · tabelas `GET_ROUTES` L22 / `POST_ROUTES` L28 / `PUBLIC_ACTIONS` L44 |
 | CSRF ⚙️ | `Csrf::verifyRequest` (`src/Csrf.php:L29-L34`), chamado em `dispatch` |
-| Erros curtos | `plainError` L176-L188 (JSON se a requisição for XHR) |
+| Erros curtos | `plainError` L195-L207 (JSON se a requisição for XHR) |
 | Pós-ação | `Controller::flash` / `redirect` / `redirectBack` (`src/Controllers/Controller.php:L47-L71`); mensagem é lida na página seguinte por `takeFlash` L53-L58 |
 
 Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`.
@@ -101,10 +101,10 @@ sequenceDiagram
 |---|---|
 | Tela de login | `AuthController::showLogin` (`src/Controllers/AuthController.php:L8-L15`) → `takeFlash`, `view('login')` (`?form=change` abre direto o formulário de nova senha) |
 | Envio ⚙️ | `AuthController::login` L17-L24 → `Auth::attempt` (`src/Auth.php:L119-L156`) |
-| Rate limit | `isLockedOut` L351-L359 · `recordFailure` L361-L367 · `clearFailures` L369-L373 · `logBlockedOnce` L313-L324 (1 registro `LOGIN_BLOQUEADO` por IP e janela) |
-| Senha | `verifyPassword` L300-L304: **sempre** roda `password_verify`, contra `DUMMY_HASH` se o login não existe (sem diferença de tempo); `hash` L291-L294 (bcrypt, custo fixo 10); rehash → `setPasswordHash` L276-L280. Log da falha usa `logLabel` L307-L310: login real, ou `desconhecido#<hash>` (nunca o texto digitado) |
+| Rate limit | `isLockedOut` L364-L372 · `recordFailure` L374-L380 · `clearFailures` L382-L386 · `logBlockedOnce` L326-L337 (1 registro `LOGIN_BLOQUEADO` por IP e janela) |
+| Senha | `verifyPassword` L313-L317: **sempre** roda `password_verify`, contra `DUMMY_HASH` se o login não existe (sem diferença de tempo); `hash` L304-L307 (bcrypt, custo fixo 10); rehash → `setPasswordHash` L289-L293. Log da falha usa `logLabel` L320-L323: login real, ou `desconhecido#<hash>` (nunca o texto digitado) |
 | Sessão segura | `session_regenerate_id(true)` + `Csrf::regenerate` (`src/Csrf.php:L17-L20`) |
-| Estado logado | `Auth::user` L48-L84: lê `user_id` da sessão, **recarrega usuário/role do banco**, aplica expiração por inatividade (8 h) e teto absoluto (12 h desde o login, `login_at`); se expirou ou o usuário sumiu, `invalidateSession` L331-L340 |
+| Estado logado | `Auth::user` L48-L84: lê `user_id` da sessão, **recarrega usuário/role do banco**, aplica expiração por inatividade (8 h) e teto absoluto (12 h desde o login, `login_at`); se expirou ou o usuário sumiu, `invalidateSession` L344-L353 |
 
 Resultados verificados: GET `/` anônimo → 200 (login) · POST sem token → **419** · senha errada → 302 `index.php` com mensagem · senha correta → 302 `index.php` → 200 lista · 5 falhas → bloqueio mesmo com a senha certa.
 
@@ -134,7 +134,7 @@ flowchart TD
     L --> Z
 ```
 
-Código: `AuthController::changePassword` (`src/Controllers/AuthController.php:L36-L50`) → `Auth::changePassword` (`src/Auth.php:L169-L191`) → `validatePassword` L282-L289. Logado volta para a pasta atual (`redirectBack`); deslogado volta ao login (em caso de erro, para `index.php?form=change`, já com o formulário de nova senha aberto).
+Código: `AuthController::changePassword` (`src/Controllers/AuthController.php:L36-L50`) → `Auth::changePassword` (`src/Auth.php:L169-L191`) → `validatePassword` L295-L302. Logado volta para a pasta atual (`redirectBack`); deslogado volta ao login (em caso de erro, para `index.php?form=change`, já com o formulário de nova senha aberto).
 
 ---
 
@@ -157,7 +157,7 @@ flowchart LR
 |---|---|
 | Área (`mode=trash` só vale para admin) | `Controller::area` (`src/Controllers/Controller.php:L21-L25`) |
 | Pasta atual | `location` L28-L34 → `FileStorage::resolve` (`src/Services/FileStorage.php:L42-L70`): rejeita `..`, confere realpath com `/` final |
-| Listagem | `listDir` L117-L134 (oculta `.htaccess`, `web.config`, `.lixeira`, `database.db`) |
+| Listagem | `listDir` L147-L164 (oculta `.htaccess`, `web.config`, `.lixeira`, `database.db`) |
 | Autoria | `FileMeta::lookup` (`src/Services/FileMeta.php:L60-L78`) |
 | Tela | `FilesController::index` (`src/Controllers/FilesController.php:L14-L80`) → `src/Views/files/index.php` |
 
@@ -189,8 +189,8 @@ sequenceDiagram
 
 | Passo | Código |
 |---|---|
-| Download / visualizar | `FilesController::download` (`src/Controllers/FilesController.php:L214-L239`) |
-| Entrega | `stream` L277-L340: `Content-Type` por lista branca (jpg, png, gif, webp, pdf, mp4, txt), SVG/XML sempre `attachment`, `nosniff`, suporte a `Range` (206/416), libera a sessão antes de transmitir |
+| Download / visualizar | `FilesController::download` (`src/Controllers/FilesController.php:L215-L240`) |
+| Entrega | `stream` L278-L341: `Content-Type` por lista branca (jpg, png, gif, webp, pdf, mp4, txt), SVG/XML sempre `attachment`, `nosniff`, suporte a `Range` (206/416), libera a sessão antes de transmitir |
 | ZIP | `FilesController::zip` L241-L271 (só área de arquivos; itens ocultos ignorados; log `ZIP`) |
 | Sem login ⚙️ | `dispatch` troca a ação protegida pela tela de login (nunca entrega arquivo) |
 
@@ -261,7 +261,7 @@ Depois de cada ação o admin continua na visão da lixeira (`index.php?mode=tra
 
 | Ação | Código | Regras |
 |---|---|---|
-| Criar | `UsersController::create` (`src/Controllers/UsersController.php:L7-L18`) → `Auth::createUser` (`src/Auth.php:L176-L195`) | login 3-50 (letras, números, `. _ -`); role só `admin`/`user`; senha ≥ 8; login duplicado → "Já existe." |
+| Criar | `UsersController::create` (`src/Controllers/UsersController.php:L7-L18`) → `Auth::createUser` (`src/Auth.php:L198-L217`) | login 3-50 (letras, números, `. _ -`); role só `admin`/`user`; senha ≥ 8; login duplicado → "Já existe." |
 | Excluir | `UsersController::delete` L20-L31 → `Auth::deleteUser` L212-L235 | não exclui a si mesmo; não exclui o **último admin** |
 | Fora do site | `bin/create-user.php` → `Auth::createUser` L198-L217 / `resetPassword` L220-L231 | único jeito de criar o primeiro admin |
 
@@ -283,7 +283,7 @@ flowchart TD
     H -- sim --> I["atualiza last_activity e segue"]
 ```
 
-Código: `AuthController::logout` (`AuthController.php:L25-L29`) → `Auth::logout` L158-L161 → `destroySession` L342-L349; expiração em `Auth::user` L48-L84 → `invalidateSession` L331-L340. Após o logout, o cookie antigo cai na tela de login (verificado). Na expiração a sessão **não é destruída**: troca o ID e o token CSRF e deixa o aviso "Sua sessão expirou. Entre novamente." (por isso o primeiro login depois de expirar não dá mais 419).
+Código: `AuthController::logout` (`AuthController.php:L26-L30`) → `Auth::logout` L158-L161 → `destroySession` L355-L362; expiração em `Auth::user` L48-L84 → `invalidateSession` L344-L353. Após o logout, o cookie antigo cai na tela de login (verificado). Na expiração a sessão **não é destruída**: troca o ID e o token CSRF e deixa o aviso "Sua sessão expirou. Entre novamente." (por isso o primeiro login depois de expirar não dá mais 419).
 
 ---
 

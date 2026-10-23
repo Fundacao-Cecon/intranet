@@ -237,22 +237,35 @@ final class Auth
             return [false, 'Não pode se excluir.'];
         }
 
-        $stmt = $this->db->prepare("SELECT id, role FROM users WHERE id = ?");
-        $stmt->execute([$id]);
-        $target = $stmt->fetch();
-        if (!$target) {
-            return [false, 'Usuário não encontrado.'];
-        }
-
-        if ($target['role'] === 'admin') {
-            $admins = (int) $this->db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
-            if ($admins <= 1) {
-                return [false, 'Não é possível excluir o último admin.'];
+        // Verificar e apagar na MESMA transação com trava de escrita: dois admins que se
+        // excluem ao mesmo tempo não conseguem, juntos, deixar o sistema sem admin.
+        $this->db->exec('BEGIN IMMEDIATE');
+        try {
+            $stmt = $this->db->prepare("SELECT id, role FROM users WHERE id = ?");
+            $stmt->execute([$id]);
+            $target = $stmt->fetch();
+            if (!$target) {
+                $this->db->exec('ROLLBACK');
+                return [false, 'Usuário não encontrado.'];
             }
-        }
 
-        $del = $this->db->prepare("DELETE FROM users WHERE id = ?");
-        $del->execute([$id]);
+            if ($target['role'] === 'admin') {
+                $admins = (int) $this->db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+                if ($admins <= 1) {
+                    $this->db->exec('ROLLBACK');
+                    return [false, 'Não é possível excluir o último admin.'];
+                }
+            }
+
+            $del = $this->db->prepare("DELETE FROM users WHERE id = ?");
+            $del->execute([$id]);
+            $this->db->exec('COMMIT');
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->exec('ROLLBACK');
+            }
+            throw $e;
+        }
         return [true, 'Usuário excluído.'];
     }
 

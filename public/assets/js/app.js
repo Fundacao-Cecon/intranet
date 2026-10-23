@@ -6,8 +6,31 @@
     var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
     // ---- modais -----------------------------------------------------------
-    function openModal(id) { var m = document.getElementById(id); if (m) m.classList.add('active'); }
-    function closeModal(id) { var m = document.getElementById(id); if (m) m.classList.remove('active'); }
+    var lastFocus = null;   // quem abriu o modal: o foco volta para ele ao fechar
+
+    function openModal(id) {
+        var m = document.getElementById(id);
+        if (!m) return;
+        if (!document.querySelector('.modal-overlay.active')) lastFocus = document.activeElement;
+        m.classList.add('active');
+        var first = m.querySelector('input:not([type=hidden]), select, textarea, button, a[href]');
+        if (first && first.focus) first.focus();
+    }
+    function closeModal(id) {
+        var m = document.getElementById(id);
+        if (m) m.classList.remove('active');
+        if (!document.querySelector('.modal-overlay.active') && lastFocus && lastFocus.focus) {
+            lastFocus.focus();
+            lastFocus = null;
+        }
+    }
+
+    // Esc fecha o modal aberto (teclado)
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var open = document.querySelector('.modal-overlay.active');
+        if (open) closeModal(open.id);
+    });
 
     // ---- toast ------------------------------------------------------------
     function showToast(msg, type) {
@@ -58,7 +81,7 @@
         var t = e.target;
 
         // clique no fundo escuro fecha o modal
-        if (t.classList && t.classList.contains('modal-overlay')) { t.classList.remove('active'); return; }
+        if (t.classList && t.classList.contains('modal-overlay')) { closeModal(t.id); return; }
         if (t.hasAttribute && t.hasAttribute('data-lightbox-backdrop')) { closeModal('lightboxModal'); return; }
 
         var el = t.closest('[data-modal-close],[data-modal-open],[data-post-action],[data-rename],[data-lightbox]');
@@ -107,7 +130,7 @@
         search.addEventListener('input', function () {
             var term = search.value.toUpperCase();
             document.querySelectorAll('.filterable-item').forEach(function (item) {
-                var name = item.querySelector('.col-name a').innerText.toUpperCase();
+                var name = item.querySelector('.col-name a').textContent.toUpperCase();
                 item.style.display = name.indexOf(term) > -1 ? '' : 'none';
             });
         });
@@ -122,7 +145,7 @@
     if (dropZone && fileInput && uploadForm) {
         fileInput.addEventListener('change', function () {
             if (fileInput.files.length > 0) {
-                dropZone.querySelector('h3').innerText = fileInput.files.length + ' selecionados';
+                dropZone.querySelector('h3').textContent = fileInput.files.length + ' selecionados';
                 btnUpload.style.display = 'block';
             }
         });

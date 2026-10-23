@@ -1,0 +1,1 @@
+{"name":"intranet-js-tests","private":true,"description":"Testes do JavaScript do painel (jsdom) e auditoria de acessibilidade (axe-core). Dependências só de desenvolvimento.","devDependencies":{"axe-core":"^4.14.0","jsdom":"^24.1.3"}}
