@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
 use ZipArchive;
 
 /** Listagem, upload, pastas, renomear, mover p/ lixeira, download e ZIP. */
@@ -76,6 +77,7 @@ final class FilesController extends Controller
         }
 
         view('files/index', [
+            'tree'        => $isTrash ? null : $this->buildTree($sub),
             'flash'       => $this->takeFlash(),
             'isTrash'     => $isTrash,
             'isAdmin'     => $isAdmin,
@@ -88,6 +90,62 @@ final class FilesController extends Controller
             'users'       => $isAdmin ? $auth->listUsers() : [],
             'groups'      => $isAdmin ? $this->ctx->groups->all() : [],
         ]);
+    }
+
+    /** Subpastas diretas de uma pasta, em JSON, para a árvore lateral carregar sob demanda. */
+    public function tree(): void
+    {
+        list($area, , $sub) = $this->location();
+        $this->json([
+            'dir'      => $sub,
+            'children' => $area === FileStorage::AREA_FILES ? $this->treeLevel($sub) : [],
+        ]);
+    }
+
+    /**
+     * Subpastas diretas de $sub (já liberada por location()): nome, caminho, cadeado e se têm filhas.
+     * Pasta fechada vem sem filhas: o cliente não pode nem sondar o que há dentro.
+     */
+    private function treeLevel(string $sub): array
+    {
+        $s = $this->ctx->storage;
+        list($abs) = $s->resolve(FileStorage::AREA_FILES, $sub);
+        list($dirs) = $s->listDir($abs);
+        $locked = $this->ctx->access->lockedMap($this->ctx->auth->user(), $sub, $dirs);
+
+        $nodes = [];
+        foreach ($dirs as $d) {
+            $isLocked = !empty($locked[$d]);
+            $nodes[] = [
+                'name'        => $d,
+                'path'        => trim($sub . '/' . $d, '/'),
+                'locked'      => $isLocked,
+                'hasChildren' => !$isLocked && $s->hasSubdirs($abs . $d . '/'),
+            ];
+        }
+        return $nodes;
+    }
+
+    /**
+     * Árvore inicial da página: a raiz e, aberta, a cadeia até a pasta atual (o resto o JS carrega).
+     *
+     * @return array [array $nodes, string $current]
+     */
+    private function buildTree(string $sub): array
+    {
+        return ['nodes' => $this->attachChain($this->treeLevel(''), FolderAccess::chain($sub), 0), 'current' => $sub];
+    }
+
+    private function attachChain(array $nodes, array $chain, int $depth): array
+    {
+        foreach ($nodes as &$n) {
+            $n['children'] = null;
+            if (isset($chain[$depth]) && $n['path'] === $chain[$depth] && !$n['locked']) {
+                $n['children'] = $this->attachChain($this->treeLevel($n['path']), $chain, $depth + 1);
+            }
+        }
+        unset($n);
+        return $nodes;
     }
 
     // ------------------------------------------------------------------

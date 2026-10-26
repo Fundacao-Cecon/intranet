@@ -13,6 +13,7 @@
  * @var array      $logs
  * @var array      $users
  * @var array      $groups       grupos (admin)
+ * @var array|null $tree         árvore lateral: ['nodes' => ..., 'current' => ...]; null na lixeira
  */
 ?><!DOCTYPE html>
 <html lang="pt-br">
@@ -58,9 +59,28 @@
 
         <div class="content-body">
 
+            <div class="layout-tree">
+            <?php if ($tree): ?>
+            <aside class="tree-panel" id="treePanel" aria-label="Árvore de pastas">
+                <ul role="tree" aria-label="Pastas" data-tree data-tree-url="<?= h(url(['action' => 'tree'])) ?>">
+                    <li role="treeitem" tabindex="0" aria-level="1" aria-expanded="true" data-path="" data-loaded="1">
+                        <div class="tree-row<?= $tree['current'] === '' ? ' current' : '' ?>">
+                            <span class="tree-toggle" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                            <a href="<?= h(url()) ?>" tabindex="-1"<?= $tree['current'] === '' ? ' aria-current="page"' : '' ?>><i aria-hidden="true" class="fas fa-home"></i> Início</a>
+                        </div>
+                        <?php if ($tree['nodes']) { view('files/tree', ['nodes' => $tree['nodes'], 'current' => $tree['current'], 'level' => 2]); } ?>
+                    </li>
+                </ul>
+            </aside>
+            <?php endif; ?>
+            <div class="main-col">
+
             <?php if (!$isTrash): ?>
             <div class="page-header">
                 <div class="nav-bar">
+                    <?php if ($tree): ?>
+                    <button type="button" class="btn-header tree-toggle-btn" data-tree-toggle aria-controls="treePanel" aria-expanded="true"><i aria-hidden="true" class="fas fa-sitemap"></i> Pastas</button>
+                    <?php endif; ?>
                     <div class="breadcrumbs">
                         <a href="<?= h(url()) ?>"><i aria-hidden="true" class="fas fa-home"></i> Início</a>
                         <?php foreach ($breadcrumbs as $crumb): ?>
@@ -198,6 +218,9 @@
                 </div>
             </form>
 
+            </div>
+            </div>
+
             <div class="footer-credit">Desenvolvido por <strong>Tecnologia da Informação</strong></div>
         </div>
     </div>
@@ -209,5 +232,6 @@
 
     <script src="assets/js/theme.js"></script>
     <script src="assets/js/app.js"></script>
+    <?php if ($tree): ?><script src="assets/js/tree.js"></script><?php endif; ?>
 </body>
 </html>
