@@ -2,7 +2,7 @@
 
 | Ação | `user` | `admin` |
 |---|:-:|:-:|
-| Entrar, navegar pastas, buscar | ✅ | ✅ |
+| Entrar, navegar pastas (inclusive pela árvore lateral), buscar | ✅ | ✅ |
 | Ver / baixar arquivo, baixar ZIP | ✅ | ✅ |
 | Alterar a própria senha (🔑) | ✅ | ✅ |
 | Upload, criar pasta, renomear | — | ✅ |

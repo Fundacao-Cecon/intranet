@@ -38,6 +38,7 @@ Regra de dependência: Views não consultam banco nem disco; Controllers não mo
 |---|---|---|---|
 | GET | *(vazio)* | `FilesController::index` (ou tela de login) | logado |
 | GET | `download` | `FilesController::download` | logado (lixeira: admin) |
+| GET | `tree` | `FilesController::tree` | logado (JSON com as subpastas diretas de `dir`) |
 | GET | `logout` | `AuthController::logout` | logado |
 | POST | `login` | `AuthController::login` | público |
 | POST | `change_password` | `AuthController::changePassword` | público* / logado |
