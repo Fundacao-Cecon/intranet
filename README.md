@@ -26,6 +26,7 @@ Login, pastas, upload, lixeira, auditoria e autoria de cada arquivo, em PHP puro
 
 - **Navegação e busca** por pastas, com **árvore lateral** (carrega sob demanda, teclado e leitor de tela) e visualização de imagens, PDF e vídeo no navegador.
 - **Upload** por arrastar e soltar, criação de pastas e renomeação.
+- **Mover** arquivos e pastas entre pastas, por botão, modal com seletor de destino ou arrastando para a lista, a árvore ou as migalhas; soltar arquivos do computador sobre uma pasta envia para ela.
 - **Download** de arquivos e de seleções inteiras em ZIP.
 - **Lixeira** com restauração, exclusão definitiva e esvaziamento.
 - **Acesso por pasta**: pastas restritas a usuários e grupos, com cadeado para quem não pode entrar.

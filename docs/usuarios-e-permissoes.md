@@ -6,6 +6,7 @@
 | Ver / baixar arquivo, baixar ZIP | ✅ | ✅ |
 | Alterar a própria senha (🔑) | ✅ | ✅ |
 | Upload, criar pasta, renomear | — | ✅ |
+| Mover arquivos e pastas entre pastas (botão, modal ou arrastar e soltar); soltar arquivos do computador numa pasta para enviar | — | ✅ |
 | Mover para a lixeira | — | ✅ |
 | Ver lixeira, restaurar, excluir definitivo, esvaziar | — | ✅ |
 | Criar / excluir usuários, ver logs (Painel Master) | — | ✅ |
