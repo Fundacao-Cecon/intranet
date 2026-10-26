@@ -76,6 +76,36 @@
         }
     }
 
+    // ---- acesso à pasta (modal do admin) -----------------------------------
+    function syncAccessMode() {
+        var restrict = document.getElementById('accessRestrict');
+        var on = !!(restrict && restrict.checked);
+        ['accessTargets', 'accessGroups'].forEach(function (id) {
+            var fs = document.getElementById(id);
+            if (fs) fs.disabled = !on;
+        });
+    }
+    function openFolderAccess(btn) {
+        var name = btn.getAttribute('data-folder-access');
+        var rule = {};
+        try { rule = JSON.parse(btn.getAttribute('data-access') || '{}') || {}; } catch (err) { rule = {}; }
+        var users = (rule.users || []).map(String);
+        var groups = (rule.groups || []).map(String);
+        var restricted = btn.getAttribute('data-restricted') === '1';
+
+        document.getElementById('folderAccessName').value = name;
+        document.getElementById('folderAccessTitle').textContent = name;   // textContent: nome nunca vira HTML
+        document.getElementById('accessInherit').checked = !restricted;
+        document.getElementById('accessRestrict').checked = restricted;
+        document.querySelectorAll('[data-access-user]').forEach(function (cb) { cb.checked = users.indexOf(cb.value) > -1; });
+        document.querySelectorAll('[data-access-group]').forEach(function (cb) { cb.checked = groups.indexOf(cb.value) > -1; });
+        syncAccessMode();
+        openModal('folderAccessModal');
+    }
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) {
+        r.addEventListener('change', syncAccessMode);
+    });
+
     // ---- cliques delegados -----------------------------------------------
     document.addEventListener('click', function (e) {
         var t = e.target;
@@ -84,7 +114,7 @@
         if (t.classList && t.classList.contains('modal-overlay')) { closeModal(t.id); return; }
         if (t.hasAttribute && t.hasAttribute('data-lightbox-backdrop')) { closeModal('lightboxModal'); return; }
 
-        var el = t.closest('[data-modal-close],[data-modal-open],[data-post-action],[data-rename],[data-lightbox]');
+        var el = t.closest('[data-modal-close],[data-modal-open],[data-post-action],[data-rename],[data-folder-access],[data-lightbox]');
         if (!el) return;
 
         if (el.hasAttribute('data-modal-close')) closeModal(el.getAttribute('data-modal-close'));
@@ -105,6 +135,8 @@
             document.getElementById('newNameInput').value = name;
             openModal('renameModal');
         }
+
+        if (el.hasAttribute('data-folder-access')) openFolderAccess(el);
 
         if (el.hasAttribute('data-lightbox')) {
             document.getElementById('lightboxImg').src = el.getAttribute('data-lightbox');

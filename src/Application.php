@@ -3,10 +3,13 @@ namespace App;
 
 use App\Controllers\AuthController;
 use App\Controllers\FilesController;
+use App\Controllers\GroupsController;
 use App\Controllers\TrashController;
 use App\Controllers\UsersController;
 use App\Services\FileMeta;
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
+use App\Services\Groups;
 use Throwable;
 
 /**
@@ -38,6 +41,10 @@ final class Application
         'empty_trash'     => [TrashController::class, 'emptyTrash'],
         'create_user'     => [UsersController::class, 'create'],
         'delete_user'     => [UsersController::class, 'delete'],
+        'set_folder_access' => [FilesController::class, 'setFolderAccess'],
+        'create_group'    => [GroupsController::class, 'create'],
+        'delete_group'    => [GroupsController::class, 'delete'],
+        'set_group_members' => [GroupsController::class, 'setMembers'],
     ];
 
     /** Rotas acessíveis sem login. */
@@ -143,7 +150,7 @@ final class Application
         }
 
         $storage = new FileStorage($paths['uploads'], $paths['trash'], $this->config['hidden_names']);
-        return new Context($this->config, $db, $auth, $logger, $storage, new FileMeta($db));
+        return new Context($this->config, $db, $auth, $logger, $storage, new FileMeta($db), new FolderAccess($db), new Groups($db));
     }
 
     private function startSession(): void

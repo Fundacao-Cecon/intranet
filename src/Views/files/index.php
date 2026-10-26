@@ -12,6 +12,7 @@
  * @var array      $breadcrumbs  [['nome','url'], ...]
  * @var array      $logs
  * @var array      $users
+ * @var array      $groups       grupos (admin)
  */
 ?><!DOCTYPE html>
 <html lang="pt-br">
@@ -132,7 +133,9 @@
                             <li class="file-item filterable-item">
                                 <div class="col-check"><?php if (!$r['isDir'] && !$isTrash): ?><input type="checkbox" name="selecionados[]" value="<?= h($r['name']) ?>" class="file-checkbox item-check" aria-label="Selecionar <?= h($r['name']) ?>"><?php endif; ?></div>
                                 <div class="col-icon">
-                                    <?php if ($r['isDir']): ?>
+                                    <?php if ($r['locked']): ?>
+                                        <i aria-hidden="true" class="fas fa-lock" style="color:#999;"></i>
+                                    <?php elseif ($r['isDir']): ?>
                                         <i aria-hidden="true" class="fas fa-folder" style="color:#f39c12;"></i>
                                     <?php elseif ($r['isImage']): ?>
                                         <img src="<?= h($r['inlineUrl']) ?>" class="file-thumb" alt="">
@@ -143,7 +146,9 @@
                                     <?php endif; ?>
                                 </div>
                                 <div class="col-name">
-                                    <?php if ($r['isDir'] && !$isTrash): ?>
+                                    <?php if ($r['locked']): ?>
+                                        <span class="locked-name" title="Acesso restrito: você não tem permissão para abrir esta pasta"><?= h($r['name']) ?> <small class="locked-tag"><i aria-hidden="true" class="fas fa-lock"></i> restrita</small></span>
+                                    <?php elseif ($r['isDir'] && !$isTrash): ?>
                                         <a href="<?= h($r['openUrl']) ?>"><?= h($r['name']) ?></a>
                                     <?php elseif (!$r['isDir'] && !$isTrash): ?>
                                         <a href="<?= h($r['downloadUrl']) ?>"><?= h($r['name']) ?></a>
@@ -172,6 +177,9 @@
                                             <?php endif; ?>
                                         <?php endif; ?>
 
+                                        <?php if ($isAdmin && $r['isDir']): ?>
+                                            <button type="button" class="btn-icon<?= $r['rule'] ? ' has-rule' : '' ?>" data-folder-access="<?= h($r['name']) ?>" data-access="<?= h(json_encode($r['rule'] ?: new stdClass())) ?>" data-restricted="<?= $r['rule'] ? '1' : '0' ?>" aria-label="Acesso à pasta <?= h($r['name']) ?><?= $r['rule'] ? ' (restrita)' : '' ?>" title="<?= $r['rule'] ? 'Acesso restrito' : 'Acesso: herda da pasta de cima' ?>"><i aria-hidden="true" class="fas <?= $r['rule'] ? 'fa-lock' : 'fa-lock-open' ?>"></i></button>
+                                        <?php endif; ?>
                                         <?php if ($isAdmin): ?>
                                             <button type="button" class="btn-icon" data-rename="<?= h($r['name']) ?>" aria-label="Renomear <?= h($r['name']) ?>" title="Renomear"><i aria-hidden="true" class="fas fa-edit"></i></button>
                                             <button type="button" class="btn-icon delete" title="Mover para a lixeira" aria-label="Mover <?= h($r['name']) ?> para a lixeira" data-post-action="trash" data-item="<?= h($r['name']) ?>"><i aria-hidden="true" class="fas fa-trash"></i></button>
@@ -195,7 +203,7 @@
     </div>
 
     <?php if ($isAdmin): ?>
-        <?php view('modals/admin', ['logs' => $logs, 'users' => $users, 'currentUserId' => $currentUserId]); ?>
+        <?php view('modals/admin', ['logs' => $logs, 'users' => $users, 'groups' => $groups, 'currentUserId' => $currentUserId]); ?>
     <?php endif; ?>
     <?php view('modals/common', ['isAdmin' => $isAdmin]); ?>
 
