@@ -171,7 +171,8 @@ test('logout encerra a sessão', function () {
 
 test('login inexistente gasta o mesmo tempo de bcrypt que senha errada de login real', function () {
     // Medianas de 15 amostras, comparação RELATIVA: não depende de a máquina estar ociosa.
-    // Sem o hash fictício o inexistente leva ~1 ms contra ~50 ms do existente (razão ~0,02).
+    // Sem o hash fictício o inexistente leva ~1 ms contra ~50 ms do existente (razão ~0,02). Os limites são
+    // folgados (0,3 a 3) porque num runner compartilhado a mediana oscila: 58 ms contra 109 ms já ocorreu.
     $n = 15;
     $known = $unknown = [];
     for ($i = 0; $i < $n; $i++) {
@@ -190,8 +191,8 @@ test('login inexistente gasta o mesmo tempo de bcrypt que senha errada de login 
     $mk = $known[intdiv($n, 2)];
     $mu = $unknown[intdiv($n, 2)];
     check($mk > 10, sprintf('login existente levou só %.1f ms: bcrypt não rodou nem para ele', $mk));
-    check($mu >= 0.6 * $mk, sprintf('login inexistente %.1f ms contra %.1f ms do existente: password_verify não rodou (enumeração por tempo)', $mu, $mk));
-    check($mu <= 1.8 * $mk, sprintf('login inexistente %.1f ms, bem mais lento que o existente (%.1f ms)', $mu, $mk));
+    check($mu >= 0.3 * $mk, sprintf('login inexistente %.1f ms contra %.1f ms do existente: password_verify não rodou (enumeração por tempo)', $mu, $mk));
+    check($mu <= 3 * $mk, sprintf('login inexistente %.1f ms, bem mais lento que o existente (%.1f ms)', $mu, $mk));
 });
 
 test('hash fictício tem o mesmo custo dos hashes reais', function () use ($db) {

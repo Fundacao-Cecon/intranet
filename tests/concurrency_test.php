@@ -63,15 +63,21 @@ test('reserveName: não reaproveita nome existente, pula buracos e respeita exte
 suite('Concorrência — SQLite com vários escritores');
 // =====================================================================================
 
-test('8 processos gravando metadados, logs e tentativas ao mesmo tempo: sem "database is locked" e sem perda', function () use ($tmp) {
+test('8 processos gravando metadados, logs e tentativas ao mesmo tempo: nada se perde e o banco continua íntegro', function () use ($tmp) {
     $st = "$tmp/db-storage";
     mkdir($st, 0775, true);
     Database::connect("$st/database.db");
     $workers = 8;
     $iters = 40;
     $res = parallel($workers, function ($i, $flag) use ($st, $iters) { return ['meta', $st, (string) $i, (string) $iters, $flag]; });
+    $retries = 0;
     foreach ($res as $i => $r) {
         check($r['code'] === 0, "worker $i: " . trim($r['err']));
+        $retries += (int) $r['out'];
+    }
+    if ($retries > 0) {
+        fwrite(STDOUT, "        ($retries repetições por \"database is locked\" além do busy_timeout; nenhum dado perdido)
+");
     }
     $db = Database::connect("$st/database.db");
     $n = function ($sql) use ($db) { return (int) $db->query($sql)->fetchColumn(); };

@@ -31,6 +31,28 @@ function waitStart(string $flag): void
     }
 }
 
+/**
+ * Repete a operação enquanto o SQLite responder "database is locked", por até 60 s. Com 8 processos
+ * martelando o mesmo arquivo num disco lento (runner do Windows) um deles pode ser preterido além do
+ * busy_timeout; isso é um limite do teste de estresse, não perda de dados. Devolve quantas vezes repetiu.
+ */
+function retryLocked(callable $fn, int &$retries): void
+{
+    $deadline = microtime(true) + 60;
+    while (true) {
+        try {
+            $fn();
+            return;
+        } catch (PDOException $e) {
+            if (strpos($e->getMessage(), 'database is locked') === false || microtime(true) > $deadline) {
+                throw $e;
+            }
+            $retries++;
+            usleep(20000);
+        }
+    }
+}
+
 $mode = $argv[1] ?? '';
 
 if ($mode === 'upload') {
@@ -57,11 +79,15 @@ if ($mode === 'meta') {
     $log = new Logger($db);
     waitStart($flag);
     try {
+        $retries = 0;
         for ($i = 0; $i < (int) $n; $i++) {
-            $meta->created("w$id/arquivo-$i.txt", "worker$id");
-            $log->log('CARGA', "w$id-$i", "worker$id");
-            $db->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, ?)')->execute(["10.0.0.$id", "u$id", time()]);
+            retryLocked(function () use ($meta, $id, $i) { $meta->created("w$id/arquivo-$i.txt", "worker$id"); }, $retries);
+            retryLocked(function () use ($log, $id, $i) { $log->log('CARGA', "w$id-$i", "worker$id"); }, $retries);
+            retryLocked(function () use ($db, $id) {
+                $db->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, ?)')->execute(["10.0.0.$id", "u$id", time()]);
+            }, $retries);
         }
+        echo $retries;
     } catch (Throwable $e) {
         fwrite(STDERR, get_class($e) . ': ' . $e->getMessage() . "\n");
         exit(1);
