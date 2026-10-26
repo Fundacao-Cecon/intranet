@@ -32,7 +32,9 @@ function startServer(string $storage, array $ini = [], array $env = [], ?string 
     $defaults = ['post_max_size=1M', 'upload_max_filesize=1M', 'display_errors=0', "session.save_path=$tmp/sessions"];
     $map = [];
     foreach (array_merge($defaults, $ini) as $d) { [$k] = explode('=', $d, 2); $map[$k] = $d; } // $ini sobrepõe
-    foreach ($map as $d) { $flags[] = '-d'; $flags[] = $d; }
+    // Valor entre aspas: no INI um "~" solto é operador, e o temp do Windows pode ter nome curto
+    // (C:/Users/RUNNER~1/...), o que corrompia session.save_path e dava 419 em todo login.
+    foreach ($map as $k => $d) { $flags[] = '-d'; $flags[] = $k . '="' . substr($d, strlen($k) + 1) . '"'; }
 
     $proc = proc_open(
         array_merge([PHP_BINARY], $flags, ['-S', "127.0.0.1:$port", '-t', $docroot ?? dirname(__DIR__) . '/public']),

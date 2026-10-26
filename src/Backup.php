@@ -158,9 +158,10 @@ final class Backup
             new \RecursiveDirectoryIterator($src, \FilesystemIterator::SKIP_DOTS),
             \RecursiveIteratorIterator::SELF_FIRST
         );
-        $root = rtrim(str_replace('\\', '/', realpath($src)), '/');
         foreach ($it as $item) {
-            $rel = substr(str_replace('\\', '/', $item->getPathname()), strlen($root));
+            // getSubPathname() não depende de como $src foi escrito (no Windows, nome curto
+            // RUNNER~1 e nome longo têm tamanhos diferentes e cortavam o caminho no lugar errado).
+            $rel = '/' . str_replace('\\', '/', $it->getSubPathname());
             if ($item->isLink()) {
                 continue; // nunca segue symlink
             }
