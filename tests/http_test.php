@@ -678,10 +678,6 @@ test('quem não está na regra vê a pasta com cadeado, sem link, sem autoria e 
 test('abrir a pasta fechada pela URL volta à raiz com "Acesso negado"; filhos também', function () use ($outro) {
     foreach (['RH', 'RH/Sub', 'RH/', 'RH//Sub'] as $d) {
         $r = $outro->get('/index.php?dir=' . $d);
-        if ($d === 'rh%2fSub') { // caixa diferente: não existe no Linux, na raiz no Windows ou 302 se resolver
-            check(strpos($r->body, 'SALARIOS-SECRETOS') === false && strpos($r->body, 'SUBPASTA-SECRETA') === false, "$d vazou");
-            continue;
-        }
         check($r->status === 302, "$d => {$r->status}");
         check($outro->follow($r)->flash() === 'Acesso negado a esta pasta.', "$d: aviso");
     }
@@ -696,6 +692,18 @@ test('download e ZIP de dentro da pasta fechada: 403 sem o conteúdo', function 
     check($r->status === 403 && $r->h('content-type') !== 'application/zip' && strpos($r->body, 'PK') !== 0, 'ZIP: ' . $r->status);
     $r = $outro->get('/index.php?action=download&dir=RH&file=folha.txt', ['X-Requested-With: XMLHttpRequest']);
     check($r->status === 403 && json_decode($r->body, true)['status'] === 'error', 'versão ajax');
+});
+
+test('digitar a pasta com outra caixa, ponto final ou nome curto não contorna a restrição', function () use ($outro, $rh2) {
+    foreach (['rh', 'Rh', 'RH.', 'RH ', 'RH~1', 'rh/sub', 'RH/SUB'] as $d) {
+        $r = $outro->get('/index.php?action=download&dir=' . rawurlencode($d) . '&file=folha.txt');
+        check(strpos($r->body, 'SALARIOS-SECRETOS') === false, json_encode($d) . ' entregou o arquivo restrito (' . $r->status . ')');
+        $r = $outro->get('/index.php?dir=' . rawurlencode($d));
+        check(strpos($r->body, 'folha.txt') === false && strpos($r->body, 'SALARIOS-SECRETOS') === false, json_encode($d) . ' listou o conteúdo restrito');
+        $r = $outro->get('/index.php?action=tree&dir=' . rawurlencode($d), ['X-Requested-With: XMLHttpRequest']);
+        check(strpos($r->body, 'Sub') === false, json_encode($d) . ' abriu a árvore da pasta restrita');
+    }
+    check($rh2->get('/index.php?action=download&dir=rh&file=folha.txt')->status !== 500, 'membro com caixa diferente não deve dar erro');
 });
 
 test('grupo e usuário listados entram: lista, baixa e baixa ZIP', function () use ($rh1, $rh2) {
