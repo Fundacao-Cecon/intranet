@@ -1,8 +1,9 @@
 # Pendências e itens não verificados
 
-## Verificado (23/10/2026)
+## Verificado (26/10/2026, release 0.2.0)
 
-- **179 testes automatizados** (`php tests/all.php`) verdes em **PHP 8.3.36 e 7.4.33**; cobertura de linhas **96,0 %**; PHPStan nível 5 sem erros. Detalhes em [estrategia-de-testes.md](estrategia-de-testes.md).
+- **249 testes automatizados** (`php tests/all.php`: 18 login, 57 unitários, 80 HTTP, 6 concorrência, 10 backup, 4 smoke, 74 JS/a11y) verdes em **PHP 8.3.36**; unit, HTTP e concorrência também em **PHP 7.4.33**. Mais 7 testes `todo` da ADR-0005 Fase 2 (pendentes de propósito).
+- **GitHub Actions** verde (PHP 7.4, 8.1, 8.3, 8.4, Windows, cobertura de linhas com meta 90 % e PHPStan nível 5) nos PRs #1 a #4. Detalhes dos testes em [estrategia-de-testes.md](estrategia-de-testes.md), que ainda descreve a contagem de 23/10.
 - Roteiro manual no navegador (JS, modais, upload, lixeira, perfil comum, celular, contraste claro/escuro) sem erros.
 - Backup com o sistema ligado, verificação por SHA-256 e restauração, com o sistema subindo na pasta restaurada.
 - `bin/smoke.php` aprova instalação certa e **reprova docroot errado**.
@@ -10,7 +11,7 @@
 ## Não verificado
 
 - **Servidor real (Apache/IIS):** `.htaccess`, `web.config`, docroot em `public/`, `php.ini`, HSTS atrás de proxy. Rode `php bin/smoke.php <url>` lá.
-- **GitHub Actions:** o workflow foi validado como YAML e reproduzido localmente, mas nunca executou no GitHub.
+- **Pastas (0.2.0):** permissões por pasta, árvore lateral e mover foram testados por testes automatizados e no navegador embutido (desktop e celular), não num servidor Apache/IIS real nem com o arraste nativo do mouse (a automação só gera os eventos de arrastar).
 - **Upload grande fora do `php -S`:** só 40 MB foram medidos (o servidor embutido do Windows recebe a ~1 MB/s); `php tests/large_test.php --mb=500` precisa rodar contra Apache/IIS.
 - **Navegador real automatizado (Playwright):** não instalado; o roteiro manual vale por enquanto.
 - **Linux:** o teste de symlink é pulado no Windows sem privilégio; roda no CI.
