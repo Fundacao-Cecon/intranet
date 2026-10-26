@@ -82,6 +82,31 @@ test('8 processos gravando metadados, logs e tentativas ao mesmo tempo: sem "dat
 });
 
 // =====================================================================================
+suite('Concorrência — regras de pasta e grupos');
+// =====================================================================================
+
+test('8 processos criando grupos, regras e renomeando ao mesmo tempo: sem "database is locked" e sem perda', function () use ($tmp) {
+    $st = "$tmp/rules-storage";
+    mkdir($st, 0775, true);
+    $db = Database::connect("$st/database.db");
+    $db->exec("INSERT INTO users (id, username, password, role) VALUES (1, 'u', 'x', 'user')");
+    $workers = 8;
+    $iters = 20;
+    $res = parallel($workers, function ($i, $flag) use ($st, $iters) { return ['rules', $st, (string) $i, (string) $iters, $flag]; });
+    foreach ($res as $i => $r) {
+        check($r['code'] === 0, "worker $i: " . trim($r['err']));
+    }
+    $n = function ($sql) use ($db) { return (int) $db->query($sql)->fetchColumn(); };
+    check($n('SELECT COUNT(*) FROM groups') === $workers * $iters, 'grupos: ' . $n('SELECT COUNT(*) FROM groups'));
+    // por worker: 20 pastas + 20 subpastas; 4 renomeações (a cada 5 iterações) levam pasta + sub
+    check($n("SELECT COUNT(*) FROM folder_rules") === $workers * $iters * 2, 'regras: ' . $n('SELECT COUNT(*) FROM folder_rules'));
+    check($n("SELECT COUNT(*) FROM folder_rule_users") === $workers * $iters, 'ligações de usuário: ' . $n('SELECT COUNT(*) FROM folder_rule_users'));
+    check($n("SELECT COUNT(*) FROM folder_rules WHERE path LIKE '%/renomeada-%'") === $workers * 4 * 2, 'renomeações perdidas');
+    check($n("SELECT COUNT(*) FROM folder_rules r WHERE r.path LIKE '%/%/sub' AND NOT EXISTS (SELECT 1 FROM folder_rules p WHERE p.path = substr(r.path, 1, length(r.path) - 4))") === 0, 'subpasta ficou órfã do pai');
+    check($db->query('PRAGMA integrity_check')->fetchColumn() === 'ok', 'banco corrompido');
+});
+
+// =====================================================================================
 suite('Concorrência — usuários');
 // =====================================================================================
 

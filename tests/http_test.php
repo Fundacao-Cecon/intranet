@@ -45,7 +45,7 @@ file_put_contents("$storage/trash/velho.txt", 'lixo');
 $db = Database::connect("$storage/database.db");
 $logger = new Logger($db);
 $seed = new Auth($db, $logger, $config['auth']);
-foreach (['admin1' => 'admin', 'admin2' => 'admin', 'user1' => 'user', 'victim' => 'user', 'chpw' => 'user', 'lockuser' => 'user', 'novo2' => 'user'] as $u => $role) {
+foreach (['admin1' => 'admin', 'admin2' => 'admin', 'user1' => 'user', 'victim' => 'user', 'chpw' => 'user', 'lockuser' => 'user', 'novo2' => 'user', 'rh1' => 'user', 'rh2' => 'user', 'outro' => 'user'] as $u => $role) {
     [$ok, $msg] = $seed->createUser($u, PW, $role);
     if (!$ok) { exit("setup falhou ($u): $msg\n"); }
 }
@@ -639,6 +639,168 @@ test('lista de usuários não vaza hash e não oferece excluir a si mesmo', func
     $body = $admin->get('/')->body;
     check(strpos($body, '$2y$') === false, 'hash de senha apareceu no HTML');
     check(substr_count($body, 'data-post-action="delete_user"') === count(dbq('SELECT 1 FROM users')) - 1, 'botão de excluir deveria faltar só para o próprio usuário');
+});
+
+// ===================================================================================
+suite('Permissões por pasta (usuários e grupos, ADR 0006)');
+// ===================================================================================
+
+// RH: fechada ao grupo "RH Equipe" (rh1) e ao usuário rh2; "outro" não entra. RH/Sub só para rh2.
+foreach (["$storage/uploads/RH/Sub", "$storage/uploads/Aberta"] as $d) { mkdir($d, 0775, true); }
+file_put_contents("$storage/uploads/RH/folha.txt", 'SALARIOS-SECRETOS');
+file_put_contents("$storage/uploads/RH/Sub/dentro.txt", 'SUBPASTA-SECRETA');
+file_put_contents("$storage/uploads/Aberta/livre.txt", 'LIVRE');
+$uid = function (string $name): int { return (int) dbq('SELECT id FROM users WHERE username = ?', [$name])[0]['id']; };
+$rh1 = login('rh1');
+$rh2 = login('rh2');
+$outro = login('outro');
+$gid = 0;
+
+test('admin cria grupo, põe rh1 nele e restringe RH ao grupo + rh2', function () use ($admin, &$gid, $uid) {
+    $r = $admin->follow($admin->post('/', ['action' => 'create_group', 'group_name' => 'RH Equipe']));
+    check($r->flash() === 'Grupo criado!', 'criar grupo: ' . $r->flash());
+    $gid = (int) dbq("SELECT id FROM groups WHERE name = 'RH Equipe'")[0]['id'];
+    $r = $admin->follow($admin->post('/', ['action' => 'set_group_members', 'id' => $gid, 'members' => [$uid('rh1')]]));
+    check($r->flash() === 'Membros atualizados.', 'membros: ' . $r->flash());
+    $r = $admin->follow($admin->post('/', ['action' => 'set_folder_access', 'folder' => 'RH', 'mode' => 'restrict', 'users' => [$uid('rh2')], 'groups' => [$gid]]));
+    check($r->flash() === 'Acesso restrito salvo.', 'regra: ' . $r->flash());
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path = 'RH'")) === 1, 'regra não gravada');
+});
+
+test('quem não está na regra vê a pasta com cadeado, sem link, sem autoria e sem data', function () use ($outro) {
+    $b = $outro->get('/')->body;
+    check(strpos($b, 'locked-name') !== false && strpos($b, 'restrita') !== false, 'sem cadeado');
+    check(strpos($b, 'dir=RH') === false, 'link para a pasta fechada apareceu');
+    check(strpos($b, 'data-folder-access') === false, 'botão de admin apareceu para usuário comum');
+    check(strpos($b, 'Docs') !== false && strpos($b, 'dir=Docs') !== false, 'pasta livre deveria continuar aberta');
+});
+
+test('abrir a pasta fechada pela URL volta à raiz com "Acesso negado"; filhos também', function () use ($outro) {
+    foreach (['RH', 'RH/Sub', 'RH/', 'RH//Sub'] as $d) {
+        $r = $outro->get('/index.php?dir=' . $d);
+        if ($d === 'rh%2fSub') { // caixa diferente: não existe no Linux, na raiz no Windows ou 302 se resolver
+            check(strpos($r->body, 'SALARIOS-SECRETOS') === false && strpos($r->body, 'SUBPASTA-SECRETA') === false, "$d vazou");
+            continue;
+        }
+        check($r->status === 302, "$d => {$r->status}");
+        check($outro->follow($r)->flash() === 'Acesso negado a esta pasta.', "$d: aviso");
+    }
+});
+
+test('download e ZIP de dentro da pasta fechada: 403 sem o conteúdo', function () use ($outro) {
+    foreach (['/index.php?action=download&dir=RH&file=folha.txt', '/index.php?action=download&dir=RH/Sub&file=dentro.txt', '/index.php?action=download&dir=RH&file=folha.txt&inline=1'] as $u) {
+        $r = $outro->get($u);
+        check($r->status === 403 && strpos($r->body, 'SECRETO') === false && $r->h('content-disposition') === '', "$u => {$r->status}");
+    }
+    $r = $outro->post('/index.php?dir=RH', ['action' => 'zip', 'selecionados' => ['folha.txt']]);
+    check($r->status === 403 && $r->h('content-type') !== 'application/zip' && strpos($r->body, 'PK') !== 0, 'ZIP: ' . $r->status);
+    $r = $outro->get('/index.php?action=download&dir=RH&file=folha.txt', ['X-Requested-With: XMLHttpRequest']);
+    check($r->status === 403 && json_decode($r->body, true)['status'] === 'error', 'versão ajax');
+});
+
+test('grupo e usuário listados entram: lista, baixa e baixa ZIP', function () use ($rh1, $rh2) {
+    foreach ([$rh1, $rh2] as $c) {
+        $r = $c->get('/index.php?dir=RH');
+        check($r->status === 200 && strpos($r->body, 'folha.txt') !== false, 'listagem de RH');
+        $d = $c->get('/index.php?action=download&dir=RH&file=folha.txt');
+        check($d->status === 200 && $d->body === 'SALARIOS-SECRETOS', 'download de RH');
+        $z = $c->post('/index.php?dir=RH', ['action' => 'zip', 'selecionados' => ['folha.txt']]);
+        check($z->status === 200 && strpos($z->body, 'PK') === 0, 'ZIP de RH: ' . $z->status);
+    }
+});
+
+test('regra de subpasta só estreita: RH/Sub só para rh2 (rh1 entra em RH, mas não em Sub)', function () use ($admin, $rh1, $rh2, $uid) {
+    $admin->post('/index.php?dir=RH', ['action' => 'set_folder_access', 'folder' => 'Sub', 'mode' => 'restrict', 'users' => [$uid('rh2')]]);
+    check(strpos($rh1->get('/index.php?dir=RH')->body, 'locked-name') !== false, 'Sub deveria aparecer com cadeado para rh1');
+    check($rh1->get('/index.php?dir=RH/Sub')->status === 302, 'rh1 entrou em Sub');
+    check($rh2->get('/index.php?dir=RH/Sub')->status === 200 && $rh2->get('/index.php?action=download&dir=RH/Sub&file=dentro.txt')->body === 'SUBPASTA-SECRETA', 'rh2 deveria entrar em Sub');
+});
+
+test('regra na filha não reabre o que o pai fechou (outro está em Sub, mas RH está fechada)', function () use ($admin, $outro, $uid) {
+    $admin->post('/index.php?dir=RH', ['action' => 'set_folder_access', 'folder' => 'Sub', 'mode' => 'restrict', 'users' => [$uid('outro'), $uid('rh2')]]);
+    check($outro->get('/index.php?dir=RH/Sub')->status === 302, 'filha reabriu a pasta do pai');
+    check($outro->get('/index.php?action=download&dir=RH/Sub&file=dentro.txt')->status === 403, 'download pela filha');
+});
+
+test('admin vê tudo e as regras no botão de acesso', function () use ($admin) {
+    $b = $admin->get('/')->body;
+    check(strpos($b, 'data-folder-access="RH"') !== false && strpos($b, 'data-restricted="1"') !== false, 'botão com regra');
+    check(strpos($b, 'data-folder-access="Aberta"') !== false && strpos($b, 'locked-name') === false, 'admin nunca vê cadeado');
+    check($admin->get('/index.php?dir=RH/Sub')->status === 200, 'admin entra em tudo');
+});
+
+test('renomear e mandar para a lixeira levam a regra junto; restaurar a devolve', function () use ($admin, $outro, $rh1, $storage) {
+    $admin->post('/', ['action' => 'rename', 'old_name' => 'RH', 'new_name' => 'RH2']);
+    check(is_dir("$storage/uploads/RH2"), 'renomear');
+    check($outro->get('/index.php?dir=RH2')->status === 302 && $outro->get('/index.php?action=download&dir=RH2&file=folha.txt')->status === 403, 'regra não acompanhou o rename');
+    check($rh1->get('/index.php?action=download&dir=RH2&file=folha.txt')->body === 'SALARIOS-SECRETOS', 'membro perdeu acesso após rename');
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path IN ('RH2','RH2/Sub')")) === 2 && !dbq("SELECT 1 FROM folder_rules WHERE path LIKE 'RH/%' OR path = 'RH'"), 'caminhos das regras');
+
+    $admin->post('/', ['action' => 'trash', 'item' => 'RH2']);
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path LIKE '.lixeira/RH2%'")) === 2, 'regra não foi para a lixeira');
+    $admin->post('/index.php?mode=trash', ['action' => 'restore', 'item' => 'RH2']);
+    check(is_dir("$storage/uploads/RH2") && count(dbq("SELECT 1 FROM folder_rules WHERE path IN ('RH2','RH2/Sub')")) === 2, 'regra não voltou');
+    check($outro->get('/index.php?dir=RH2')->status === 302, 'pasta restaurada ficou pública');
+
+    $admin->post('/', ['action' => 'rename', 'old_name' => 'RH2', 'new_name' => 'RH']);
+});
+
+test('excluir definitivamente e esvaziar a lixeira apagam as regras', function () use ($admin, $storage) {
+    $admin->post('/', ['action' => 'trash', 'item' => 'RH']);
+    $admin->post('/index.php?mode=trash', ['action' => 'purge', 'item' => 'RH']);
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '%RH%'") && !dbq("SELECT 1 FROM folder_rule_users WHERE path LIKE '%RH%'"), 'sobrou regra após purge');
+    mkdir("$storage/uploads/Tmp", 0775);
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Tmp', 'mode' => 'restrict']);
+    $admin->post('/', ['action' => 'trash', 'item' => 'Tmp']);
+    $admin->post('/index.php?mode=trash', ['action' => 'empty_trash']);
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '.lixeira%'"), 'sobrou regra após esvaziar');
+});
+
+test('"só admins" (restringir sem marcar ninguém) e voltar a herdar', function () use ($admin, $rh1) {
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Aberta', 'mode' => 'restrict']);
+    check($rh1->get('/index.php?dir=Aberta')->status === 302, 'só admins deixou usuário entrar');
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Aberta', 'mode' => 'inherit']);
+    check($rh1->get('/index.php?dir=Aberta')->status === 200, 'inherit não reabriu');
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path = 'Aberta'"), 'regra não removida');
+});
+
+test('excluir o grupo ou o usuário tira o acesso de quem dependia deles', function () use ($admin, $rh1, $storage, $uid, &$gid) {
+    mkdir("$storage/uploads/Fin", 0775);
+    file_put_contents("$storage/uploads/Fin/x.txt", 'FIN');
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Fin', 'mode' => 'restrict', 'groups' => [$gid], 'users' => [$uid('novo2')]]);
+    check($rh1->get('/index.php?dir=Fin')->status === 200, 'membro do grupo deveria entrar');
+    $admin->post('/', ['action' => 'delete_group', 'id' => $gid]);
+    check($rh1->get('/index.php?dir=Fin')->status === 302, 'grupo excluído ainda dá acesso');
+    check(!dbq('SELECT 1 FROM group_members WHERE group_id = ?', [$gid]) && !dbq('SELECT 1 FROM folder_rule_groups WHERE group_id = ?', [$gid]), 'ligações do grupo sobraram');
+    $admin->post('/', ['action' => 'create_group', 'group_name' => 'Temporario']);
+    $tid = (int) dbq("SELECT id FROM groups WHERE name = 'Temporario'")[0]['id'];
+    $admin->post('/', ['action' => 'set_group_members', 'id' => $tid, 'members' => [$uid('novo2')]]);
+    check(count(dbq('SELECT 1 FROM group_members WHERE group_id = ?', [$tid])) === 1, 'membro não entrou no grupo');
+    $admin->post('/', ['action' => 'delete_user', 'id' => $uid('novo2')]);
+    check(!dbq("SELECT 1 FROM folder_rule_users WHERE path = 'Fin'"), 'ligação do usuário excluído sobrou');
+    check(!dbq('SELECT 1 FROM group_members WHERE group_id = ?', [$tid]), 'usuário excluído continua membro do grupo');
+});
+
+test('usuário comum não define regras nem gerencia grupos; sem CSRF = 419; pasta inválida é recusada', function () use ($outro, $admin, $storage, $uid) {
+    foreach ([['action' => 'set_folder_access', 'folder' => 'Docs', 'mode' => 'restrict'], ['action' => 'create_group', 'group_name' => 'Hack'], ['action' => 'delete_group', 'id' => 1], ['action' => 'set_group_members', 'id' => 1, 'members' => [1]]] as $f) {
+        $outro->post('/', $f);
+    }
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path = 'Docs'") && !dbq("SELECT 1 FROM groups WHERE name = 'Hack'"), 'usuário comum mexeu em permissões');
+    check($admin->post('/', ['action' => 'create_group', 'group_name' => 'Sem CSRF'], false)->status === 419, 'sem CSRF deveria ser 419');
+    foreach (['..', 'naoexiste', 'logo.png', '', '.htaccess'] as $bad) {
+        $r = $admin->follow($admin->post('/', ['action' => 'set_folder_access', 'folder' => $bad, 'mode' => 'restrict']));
+        check($r->flash() === 'Pasta não encontrada.', json_encode($bad) . ' => ' . $r->flash());
+    }
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path IN ('logo.png', '', '..', 'naoexiste')"), 'regra criada para alvo inválido');
+});
+
+test('grupos: nomes inválidos ou repetidos (sem diferenciar maiúsculas) são recusados', function () use ($admin) {
+    $admin->post('/', ['action' => 'create_group', 'group_name' => 'TI']);
+    foreach (['', 'x', '<script>', 'ti', ' TI ', str_repeat('a', 51)] as $bad) {
+        $r = $admin->follow($admin->post('/', ['action' => 'create_group', 'group_name' => $bad]));
+        check($r->flash() !== 'Grupo criado!', json_encode($bad) . ' foi aceito');
+    }
+    check((int) dbq("SELECT COUNT(*) n FROM groups WHERE name = 'TI' COLLATE NOCASE")[0]['n'] === 1, 'grupo duplicado');
 });
 
 // ===================================================================================

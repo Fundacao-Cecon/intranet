@@ -5,6 +5,7 @@
  *   php race_worker.php upload  <pasta> <nome> <id> <arquivo-largada> [legacy]
  *   php race_worker.php meta    <storage> <id> <iteracoes> <arquivo-largada>
  *   php race_worker.php delete  <storage> <id-quem-age> <id-alvo> <arquivo-largada>
+ *   php race_worker.php rules   <storage> <id> <iteracoes> <arquivo-largada>
  *   php race_worker.php login   <storage> <usuario> <senha> <ip> <arquivo-largada>
  *
  * Todos esperam o arquivo de largada existir para começarem juntos.
@@ -18,6 +19,8 @@ use App\Database;
 use App\Logger;
 use App\Services\FileMeta;
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
+use App\Services\Groups;
 
 function waitStart(string $flag): void
 {
@@ -58,6 +61,29 @@ if ($mode === 'meta') {
             $meta->created("w$id/arquivo-$i.txt", "worker$id");
             $log->log('CARGA', "w$id-$i", "worker$id");
             $db->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, ?)')->execute(["10.0.0.$id", "u$id", time()]);
+        }
+    } catch (Throwable $e) {
+        fwrite(STDERR, get_class($e) . ': ' . $e->getMessage() . "\n");
+        exit(1);
+    }
+    exit(0);
+}
+
+if ($mode === 'rules') {
+    [, , $storage, $id, $n, $flag] = $argv;
+    $db = Database::connect($storage . '/database.db');
+    $access = new FolderAccess($db);
+    $groups = new Groups($db);
+    waitStart($flag);
+    try {
+        for ($i = 0; $i < (int) $n; $i++) {
+            [$ok] = $groups->create("grupo-$id-$i");
+            if (!$ok) { throw new RuntimeException("grupo-$id-$i recusado"); }
+            $access->setRule("w$id/pasta-$i", [1], []);
+            $access->setRule("w$id/pasta-$i/sub", [], []);
+            if ($i % 5 === 4) {
+                $access->renamed("w$id/pasta-" . ($i - 4), "w$id/renomeada-$i");
+            }
         }
     } catch (Throwable $e) {
         fwrite(STDERR, get_class($e) . ': ' . $e->getMessage() . "\n");
