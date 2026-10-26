@@ -19,6 +19,7 @@ Grafo interativo do código: [`fluxos/viz/index.html`](fluxos/viz/index.html) (a
 9. [Logout e expiração](#9-logout-e-expiração-de-sessão)
 10. [Matriz perfil × ação final](#10-matriz-perfil--ação-final)
 11. [Onde cada negação nasce](#11-onde-cada-erro-ou-negação-nasce)
+12. [Permissões por pasta](#12-permissões-por-pasta)
 
 ---
 
@@ -59,7 +60,7 @@ flowchart TD
 | Erros curtos | `plainError` L195-L207 (JSON se a requisição for XHR) |
 | Pós-ação | `Controller::flash` / `redirect` / `redirectBack` (`src/Controllers/Controller.php:L47-L71`); mensagem é lida na página seguinte por `takeFlash` L53-L58 |
 
-Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`.
+Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`, `set_folder_access`, `create_group`, `delete_group`, `set_group_members`.
 
 ---
 
@@ -318,3 +319,29 @@ Código: `AuthController::logout` (`AuthController.php:L26-L30`) → `Auth::logo
 | Range inválido | 416 | `stream` |
 | Muitas tentativas de login | mensagem no login | `Auth::isLockedOut` |
 | Exceção PHP | 500 genérico + `storage/logs/php-error.log` | `Application::handleFatal` L165-L174 |
+| Pasta restrita sem permissão (navegar) | 302 `index.php` + flash "Acesso negado a esta pasta." | `Controller::location` → `denyAccess` |
+| Pasta restrita sem permissão (download, ZIP, ação) | 403 texto (XHR: JSON 403) | `Controller::denyAccess` |
+
+---
+
+## 12. Permissões por pasta
+
+```mermaid
+flowchart TD
+    A["Qualquer ação com ?dir="] --> B["Controller::location"]
+    B --> C{"admin?"}
+    C -- sim --> OK["segue"]
+    C -- não --> D["FolderAccess::allows: regras da cadeia"]
+    D -- "todas admitem" --> OK
+    D -- "alguma nega" --> E{"navegando?"}
+    E -- sim --> F["flash + redirect para a raiz"]
+    E -- não --> G["403"]
+```
+
+| Passo | Código |
+|---|---|
+| Regra da pasta e das subpastas (cadeia) | `FolderAccess::allows`, `evaluate` |
+| Cadeado na listagem (uma consulta) | `FolderAccess::lockedMap` ← `FilesController::index` |
+| Admin define a regra | `FilesController::setFolderAccess` (`set_folder_access`) |
+| Grupos | `GroupsController` (`create_group`, `delete_group`, `set_group_members`) ← `Groups` |
+| Regra acompanha rename/lixeira/restaurar/excluir | `FolderAccess::renamed` / `removed` ← `FilesController`, `TrashController` |
