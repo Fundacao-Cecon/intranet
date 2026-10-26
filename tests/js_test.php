@@ -35,7 +35,7 @@ const PW = 'Senha-Teste-123';
 
 // --- dados --------------------------------------------------------------------------------
 $storage = "$tmp/storage";
-foreach (["$storage/uploads/Norma Zero", "$storage/uploads/Imagens", "$storage/uploads/Restrita", "$storage/trash", "$tmp/sessions", "$tmp/html"] as $d) { mkdir($d, 0775, true); }
+foreach (["$storage/uploads/Norma Zero/Sub", "$storage/uploads/Imagens", "$storage/uploads/Restrita", "$storage/trash", "$tmp/sessions", "$tmp/html"] as $d) { mkdir($d, 0775, true); }
 file_put_contents("$storage/uploads/leia-me.txt", 'oi');
 file_put_contents("$storage/uploads/Norma Zero/protocolo.pdf", "%PDF-1.4\nx");
 file_put_contents("$storage/uploads/Imagens/foto.png", base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
@@ -64,6 +64,7 @@ $admin->follow($admin->post('/', ['action' => 'login', 'user' => 'js_admin', 'pa
 $save('admin', $admin->get('/')->body);
 $save('trash', $admin->get('/index.php?mode=trash')->body);
 $save('images', $admin->get('/index.php?dir=Imagens')->body);
+$save('sub', $admin->get('/index.php?dir=' . rawurlencode('Norma Zero/Sub'))->body);
 
 $user = new Client($base);
 $user->follow($user->post('/', ['action' => 'login', 'user' => 'js_user', 'pass' => PW]));

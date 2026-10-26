@@ -348,3 +348,208 @@ test('grupos: o modal lista os grupos com seus membros e cada formulário leva C
     click(d.querySelector('[data-modal-open=groupsModal]'));
     assert.ok(d.querySelector('#groupsModal').classList.contains('active'));
 });
+
+// ---------------------------------------------------------------- árvore de pastas
+const TREE = ['theme.js', 'app.js', 'tree.js'];
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const key = (el, k) => el.dispatchEvent(new el.ownerDocument.defaultView.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+
+/** Carrega a página com fetch falso: `answer(url)` devolve o JSON (ou lança) e `calls` guarda as URLs pedidas. */
+function loadTree(page, answer, store = {}) {
+    const calls = [];
+    const ctx = load(page, TREE, {
+        before(w) {
+            for (const [k, v] of Object.entries(store)) w.localStorage.setItem(k, v);
+            w.fetch = (url) => {
+                calls.push(String(url));
+                try {
+                    const body = answer(String(url));
+                    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+                } catch (e) {
+                    return Promise.resolve({ ok: false, status: 403, json: () => Promise.resolve({}) });
+                }
+            };
+        },
+    });
+    // âncoras não navegam no jsdom: evita o erro "not implemented: navigation"
+    ctx.document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a')) e.preventDefault(); });
+    return Object.assign(ctx, { calls });
+}
+const item = (d, path) => [...d.querySelectorAll('[data-tree] [role=treeitem]')].find((i) => i.getAttribute('data-path') === path);
+const sub = (children) => ({ dir: '', children });
+
+test('árvore: estrutura ARIA, raiz aberta, pastas do primeiro nível e pasta atual marcada', () => {
+    const { document: d } = loadTree('admin', () => sub([]));
+    const tree = d.querySelector('[data-tree]');
+    assert.equal(tree.getAttribute('role'), 'tree');
+    assert.ok(tree.getAttribute('aria-label'));
+    const root = item(d, '');
+    assert.equal(root.getAttribute('aria-expanded'), 'true');
+    assert.equal(root.getAttribute('aria-level'), '1');
+    assert.equal(root.querySelector('a[aria-current=page]') !== null, true, 'a raiz é a pasta atual');
+    for (const p of ['Norma Zero', 'Imagens', 'Restrita']) {
+        const li = item(d, p);
+        assert.ok(li, p);
+        assert.equal(li.getAttribute('role'), 'treeitem');
+        assert.equal(li.getAttribute('aria-level'), '2');
+    }
+    assert.equal(item(d, 'Norma Zero').getAttribute('aria-expanded'), 'false', 'tem subpasta, começa fechada');
+    assert.equal(item(d, 'Imagens').hasAttribute('aria-expanded'), false, 'sem subpastas não é expansível');
+    assert.deepEqual([...d.querySelectorAll('[data-tree] [tabindex="0"]')].map((i) => i.getAttribute('data-path')), [''], 'só um item no tab (roving tabindex)');
+});
+
+test('árvore: na pasta aberta a cadeia vem aberta e a pasta atual fica marcada', () => {
+    const { document: d } = loadTree('sub', () => sub([]));
+    assert.equal(item(d, 'Norma Zero').getAttribute('aria-expanded'), 'true');
+    const cur = d.querySelector('[data-tree] a[aria-current=page]');
+    assert.ok(cur && cur.closest('[role=treeitem]').getAttribute('data-path') === 'Norma Zero/Sub');
+    assert.ok(cur.closest('.tree-row').classList.contains('current'));
+});
+
+test('árvore: abrir busca as filhas uma vez; nomes viram texto; pasta fechada é cadeado sem link; fechar e reabrir não busca de novo', async () => {
+    const hostile = '<img src=x onerror=alert(1)>';
+    const { document: d, calls } = loadTree('admin', () => sub([
+        { name: hostile, path: 'Imagens/' + hostile, locked: false, hasChildren: false },
+        { name: 'Trancada', path: 'Imagens/Trancada', locked: true, hasChildren: false },
+    ]));
+    const li = item(d, 'Norma Zero');
+    click(li.querySelector('.tree-toggle'));
+    await flush();
+    assert.equal(calls.length, 1);
+    assert.match(calls[0], /action=tree&dir=Norma%20Zero$/);
+    assert.equal(li.getAttribute('aria-expanded'), 'true');
+    const kids = li.querySelectorAll('[role=group] > [role=treeitem]');
+    assert.equal(kids.length, 2);
+    assert.equal(kids[0].getAttribute('aria-level'), '3');
+    assert.equal(li.querySelector('img'), null, 'nome interpretado como HTML');
+    assert.equal(kids[0].querySelector('a').textContent.trim(), hostile);
+    assert.equal(kids[1].querySelector('a'), null, 'pasta fechada não pode ter link');
+    assert.equal(kids[1].getAttribute('aria-disabled'), 'true');
+    assert.match(kids[1].textContent, /acesso restrito/);
+
+    click(li.querySelector('.tree-toggle'));
+    assert.equal(li.getAttribute('aria-expanded'), 'false');
+    click(li.querySelector('.tree-toggle'));
+    await flush();
+    assert.equal(li.getAttribute('aria-expanded'), 'true');
+    assert.equal(calls.length, 1, 'reabrir não deveria buscar de novo');
+});
+
+test('árvore: falha ao carregar mostra aviso, não abre e tenta de novo no próximo clique', async () => {
+    let fail = true;
+    const { document: d, calls } = loadTree('admin', () => { if (fail) throw new Error('403'); return sub([]); });
+    const li = item(d, 'Norma Zero');
+    click(li.querySelector('.tree-toggle'));
+    await flush();
+    assert.match(li.textContent, /Não foi possível carregar/);
+    assert.equal(li.getAttribute('aria-expanded'), 'false');
+    assert.equal(li.querySelectorAll('.tree-error').length, 1);
+    fail = false;
+    click(li.querySelector('.tree-toggle'));
+    await flush();
+    assert.equal(calls.length, 2);
+    assert.equal(li.getAttribute('aria-expanded'), 'true');
+    assert.equal(li.querySelectorAll('.tree-error').length, 0, 'o aviso antigo deveria sumir');
+});
+
+test('árvore: teclado (setas, Home/End, Enter) segue o padrão ARIA tree', async () => {
+    const { document: d, window: w } = loadTree('admin', () => sub([{ name: 'Filha', path: 'Norma Zero/Filha', locked: false, hasChildren: false }]));
+    const tree = d.querySelector('[data-tree]');
+    const root = item(d, '');
+    const nz = item(d, 'Norma Zero');
+    root.focus();
+
+    key(root, 'ArrowDown');
+    assert.equal(d.activeElement.getAttribute('data-path'), 'Imagens', 'ordem do servidor: Imagens vem antes');
+    assert.equal(d.activeElement.getAttribute('tabindex'), '0');
+    assert.equal(root.getAttribute('tabindex'), '-1', 'roving tabindex');
+
+    nz.focus();
+    key(nz, 'ArrowRight');                         // abre
+    await flush();
+    assert.equal(nz.getAttribute('aria-expanded'), 'true');
+    key(nz, 'ArrowRight');                         // já aberta: vai para a primeira filha
+    assert.equal(d.activeElement.getAttribute('data-path'), 'Norma Zero/Filha', 'já aberta: vai para a primeira filha');
+    const filha = item(d, 'Norma Zero/Filha');
+    assert.ok(filha);
+    key(d.activeElement, 'ArrowLeft');             // filha: sobe para a mãe
+    assert.equal(d.activeElement, nz);
+    key(nz, 'ArrowLeft');                          // mãe aberta: fecha
+    assert.equal(nz.getAttribute('aria-expanded'), 'false');
+    key(nz, 'ArrowDown');                          // pula as filhas escondidas
+    assert.notEqual(d.activeElement, filha);
+
+    key(d.activeElement, 'End');
+    const all = [...tree.querySelectorAll('[role=treeitem]')].filter((i) => !i.closest('[aria-expanded=false] > [role=group]'));
+    assert.equal(d.activeElement, all[all.length - 1]);
+    key(d.activeElement, 'Home');
+    assert.equal(d.activeElement, root);
+
+    let clicked = 0;
+    const a = item(d, 'Imagens').querySelector('a');
+    a.addEventListener('click', () => { clicked++; });
+    item(d, 'Imagens').focus();
+    key(item(d, 'Imagens'), 'Enter');
+    assert.equal(clicked, 1, 'Enter abre a pasta');
+    key(item(d, 'Imagens'), ' ');
+    assert.equal(clicked, 2, 'espaço também');
+    key(item(d, 'Imagens'), 'a');                  // outras teclas não fazem nada
+    void w;
+});
+
+test('árvore: lembra o que o usuário abriu e reabre ao voltar à página', async () => {
+    const answer = () => sub([{ name: 'Filha', path: 'Norma Zero/Filha', locked: false, hasChildren: false }]);
+    const first = loadTree('admin', answer);
+    click(item(first.document, 'Norma Zero').querySelector('.tree-toggle'));
+    await flush();
+    const saved = first.window.localStorage.getItem('tree.open');
+    assert.deepEqual(JSON.parse(saved), ['Norma Zero']);
+
+    const again = loadTree('admin', answer, { 'tree.open': saved });
+    await flush();
+    await flush();
+    assert.equal(item(again.document, 'Norma Zero').getAttribute('aria-expanded'), 'true');
+    assert.ok(item(again.document, 'Norma Zero/Filha'));
+    assert.equal(again.calls.length, 1);
+
+    const junk = loadTree('admin', answer, { 'tree.open': '{isto não é lista' });   // lixo no localStorage não quebra
+    await flush();
+    assert.equal(junk.calls.length, 0);
+});
+
+test('árvore: botão "Pastas" fecha e abre o painel e lembra a escolha; localStorage bloqueado não quebra', () => {
+    const { document: d, window: w } = loadTree('admin', () => sub([]));
+    const btn = d.querySelector('[data-tree-toggle]');
+    const panel = d.getElementById('treePanel');
+    assert.equal(btn.getAttribute('aria-controls'), 'treePanel');
+    assert.equal(btn.getAttribute('aria-expanded'), 'true');
+    assert.ok(!panel.classList.contains('closed'));
+    click(btn);
+    assert.ok(panel.classList.contains('closed'));
+    assert.equal(btn.getAttribute('aria-expanded'), 'false');
+    assert.equal(w.localStorage.getItem('tree.panel'), 'closed');
+    click(btn);
+    assert.ok(!panel.classList.contains('closed'));
+
+    const closed = loadTree('admin', () => sub([]), { 'tree.panel': 'closed' });
+    assert.ok(closed.document.getElementById('treePanel').classList.contains('closed'), 'escolha salva vale ao recarregar');
+
+    const blocked = load('admin', TREE, {
+        before(win) {
+            win.fetch = () => Promise.reject(new Error('sem rede'));
+            Object.defineProperty(win, 'localStorage', { get() { throw new Error('bloqueado'); } });
+        },
+    });
+    assert.ok(blocked.document.querySelector('[data-tree]'), 'sem localStorage a árvore continua de pé');
+});
+
+test('árvore: usuário comum vê a pasta fechada como cadeado; a lixeira não tem árvore', () => {
+    const { document: d } = loadTree('user', () => sub([]));
+    const li = item(d, 'Restrita');
+    assert.ok(li && li.getAttribute('aria-disabled') === 'true');
+    assert.equal(li.querySelector('a'), null);
+    assert.ok(li.querySelector('.tree-locked .fa-lock'));
+    const trash = load('trash', TREE);
+    assert.equal(trash.document.querySelector('[data-tree]'), null);
+    assert.equal(trash.document.getElementById('treePanel'), null);
+});

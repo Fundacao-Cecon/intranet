@@ -24,7 +24,7 @@ Login, pastas, upload, lixeira, auditoria e autoria de cada arquivo, em PHP puro
 
 ## 📁 Funcionalidades
 
-- **Navegação e busca** por pastas, com visualização de imagens, PDF e vídeo no navegador.
+- **Navegação e busca** por pastas, com **árvore lateral** (carrega sob demanda, teclado e leitor de tela) e visualização de imagens, PDF e vídeo no navegador.
 - **Upload** por arrastar e soltar, criação de pastas e renomeação.
 - **Download** de arquivos e de seleções inteiras em ZIP.
 - **Lixeira** com restauração, exclusão definitiva e esvaziamento.

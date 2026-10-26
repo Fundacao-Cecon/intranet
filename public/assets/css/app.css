@@ -180,3 +180,29 @@
 .group-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .group-head span { margin-left: auto; opacity: .7; font-size: 12px; }
 .group-members { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; max-height: 120px; overflow: auto; }
+
+/* ---- árvore de pastas ---- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.layout-tree { display: flex; gap: 20px; align-items: flex-start; }
+.main-col { flex: 1; min-width: 0; }
+.tree-panel { width: 250px; flex: none; max-height: 70vh; overflow: auto; background: var(--bg-container); border: 1px solid var(--border-color); border-radius: 12px; padding: 8px 4px; }
+.tree-panel.closed { display: none; }
+.tree-panel ul { list-style: none; margin: 0; padding: 0; }
+.tree-panel ul ul { padding-left: 14px; }
+.tree-panel li[role=treeitem] { outline: none; }
+.tree-row { display: flex; align-items: center; gap: 2px; border-radius: 6px; padding: 3px 6px 3px 2px; font-size: 14px; }
+.tree-row:hover { background: var(--hover-bg); }
+.tree-row.current { background: var(--btn-view-bg); font-weight: 600; }
+.tree-row a, .tree-locked { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
+.tree-row a i.fa-folder { color: #f39c12; }
+.tree-locked { color: var(--text-secondary); cursor: not-allowed; }
+.tree-toggle { width: 18px; text-align: center; cursor: pointer; color: var(--text-secondary); font-size: 11px; flex: none; }
+.tree-toggle i { transition: transform .12s; }
+li[aria-expanded=true] > .tree-row .tree-toggle i { transform: rotate(90deg); }
+li[aria-expanded=false] > ul[role=group] { display: none; }
+.tree-panel li:focus > .tree-row, .tree-panel li:focus-visible > .tree-row { box-shadow: 0 0 0 2px var(--accent-color); }
+.tree-msg { padding: 3px 6px 3px 22px; font-size: 12px; color: var(--text-secondary); }
+@media (max-width: 900px) {
+    .layout-tree { flex-direction: column; }
+    .tree-panel { width: 100%; max-height: 40vh; }
+}

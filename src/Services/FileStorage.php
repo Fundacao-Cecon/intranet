@@ -163,6 +163,25 @@ final class FileStorage
         return [array_values($dirs), array_values($files)];
     }
 
+    /** Tem alguma subpasta (não oculta)? Para ao achar a primeira: serve à árvore lateral. */
+    public function hasSubdirs(string $absDir): bool
+    {
+        $h = @opendir($absDir);
+        if ($h === false) {
+            return false;
+        }
+        try {
+            while (($entry = readdir($h)) !== false) {
+                if (!$this->isHidden($entry) && is_dir($absDir . $entry)) {
+                    return true;
+                }
+            }
+        } finally {
+            closedir($h);
+        }
+        return false;
+    }
+
     /** Caminho usado como chave em files_meta (".lixeira/..." na lixeira). */
     public function metaPath(string $area, string $sub, string $item = ''): string
     {

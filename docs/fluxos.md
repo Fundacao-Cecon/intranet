@@ -60,7 +60,7 @@ flowchart TD
 | Erros curtos | `plainError` L195-L207 (JSON se a requisição for XHR) |
 | Pós-ação | `Controller::flash` / `redirect` / `redirectBack` (`src/Controllers/Controller.php:L47-L71`); mensagem é lida na página seguinte por `takeFlash` L53-L58 |
 
-Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`, `set_folder_access`, `create_group`, `delete_group`, `set_group_members`.
+Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`, `set_folder_access`, `create_group`, `delete_group`, `set_group_members`. GET também: `tree`.
 
 ---
 
@@ -161,6 +161,8 @@ flowchart LR
 | Listagem | `listDir` L147-L164 (oculta `.htaccess`, `web.config`, `.lixeira`, `database.db`) |
 | Autoria | `FileMeta::lookup` (`src/Services/FileMeta.php:L60-L78`) |
 | Tela | `FilesController::index` (`src/Controllers/FilesController.php:L14-L80`) → `src/Views/files/index.php` |
+| Árvore lateral (cadeia até a pasta atual já aberta) | `FilesController::buildTree` → `treeLevel` → `src/Views/files/tree.php` |
+| Árvore: abrir uma pasta carrega as filhas | `public/assets/js/tree.js` → `GET ?action=tree&dir=` → `FilesController::tree` (usa `location()`, então pasta fechada = 403) |
 
 ---
 

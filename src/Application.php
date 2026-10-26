@@ -26,6 +26,7 @@ final class Application
         ''         => [FilesController::class, 'index'],
         'download' => [FilesController::class, 'download'],
         'logout'   => [AuthController::class, 'logout'],
+        'tree'     => [FilesController::class, 'tree'],
     ];
 
     const POST_ROUTES = [
