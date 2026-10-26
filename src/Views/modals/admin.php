@@ -5,6 +5,7 @@
  * @var array    $logs
  * @var array    $users
  * @var array    $groups
+ * @var array|null $moveNodes  subpastas da raiz para o seletor de destino (null na lixeira)
  * @var int|null $currentUserId
  */
 ?>
@@ -169,3 +170,33 @@
         </div>
     </div>
 </div>
+
+<?php if ($moveNodes !== null): ?>
+<div id="moveModal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Mover itens">
+    <div class="modal-box" style="max-width:520px">
+        <div class="modal-header"><h3><i aria-hidden="true" class="fas fa-folder-tree"></i> Mover para</h3><button class="modal-close" type="button" aria-label="Fechar" data-modal-close="moveModal">&times;</button></div>
+        <div class="modal-body">
+            <form method="POST" id="moveForm">
+                <?= App\Csrf::field() ?>
+                <input type="hidden" name="action" value="move">
+                <input type="hidden" name="dest" id="moveDest" value="">
+                <div id="moveItems"></div>
+                <p id="moveSummary"></p>
+                <div class="tree-panel tree-select">
+                    <ul role="tree" aria-label="Pasta de destino" data-tree data-tree-select data-tree-url="<?= h(url(['action' => 'tree'])) ?>">
+                        <li role="treeitem" tabindex="0" aria-level="1" aria-expanded="true" aria-selected="false" data-path="" data-loaded="1">
+                            <div class="tree-row">
+                                <span class="tree-toggle" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                                <a href="<?= h(url()) ?>" tabindex="-1"><i aria-hidden="true" class="fas fa-home"></i> Início</a>
+                            </div>
+                            <?php if ($moveNodes) { view('files/tree', ['nodes' => $moveNodes, 'current' => "\n", 'level' => 2]); } ?>
+                        </li>
+                    </ul>
+                </div>
+                <p id="moveHint" role="status" class="move-hint">Escolha a pasta de destino.</p>
+                <button type="submit" id="moveSubmit" class="btn-primary" style="width:100%" disabled>Mover aqui</button>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>

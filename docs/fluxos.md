@@ -20,6 +20,7 @@ Grafo interativo do código: [`fluxos/viz/index.html`](fluxos/viz/index.html) (a
 10. [Matriz perfil × ação final](#10-matriz-perfil--ação-final)
 11. [Onde cada negação nasce](#11-onde-cada-erro-ou-negação-nasce)
 12. [Permissões por pasta](#12-permissões-por-pasta)
+13. [Mover e arrastar e soltar](#13-mover-e-arrastar-e-soltar)
 
 ---
 
@@ -60,7 +61,7 @@ flowchart TD
 | Erros curtos | `plainError` L195-L207 (JSON se a requisição for XHR) |
 | Pós-ação | `Controller::flash` / `redirect` / `redirectBack` (`src/Controllers/Controller.php:L47-L71`); mensagem é lida na página seguinte por `takeFlash` L53-L58 |
 
-Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`, `set_folder_access`, `create_group`, `delete_group`, `set_group_members`. GET também: `tree`.
+Rotas (resumo): GET `''`, `download`, `logout`. POST `login`, `change_password` (públicas); `mkdir`, `rename`, `upload`, `trash`, `zip`, `restore`, `purge`, `empty_trash`, `create_user`, `delete_user`, `set_folder_access`, `move`, `create_group`, `delete_group`, `set_group_members`. GET também: `tree`.
 
 ---
 
@@ -347,3 +348,28 @@ flowchart TD
 | Admin define a regra | `FilesController::setFolderAccess` (`set_folder_access`) |
 | Grupos | `GroupsController` (`create_group`, `delete_group`, `set_group_members`) ← `Groups` |
 | Regra acompanha rename/lixeira/restaurar/excluir | `FolderAccess::renamed` / `removed` ← `FilesController`, `TrashController` |
+
+---
+
+## 13. Mover e arrastar e soltar
+
+```mermaid
+flowchart TD
+    A["Admin: botão da linha, 'Mover selecionados' ou arrastar"] --> B["POST action=move: items[] + dest"]
+    B --> C["FilesController::move"]
+    C --> D{"dest existe, é diferente da pasta atual?"}
+    D -- não --> X["flash de erro, nada muda"]
+    D -- sim --> E["para cada item"]
+    E --> F{"oculto, inexistente, link, pasta para dentro de si?"}
+    F -- sim --> G["ignorado (contado)"]
+    F -- não --> H["arquivo: reserveKeepingName; pasta: uniqueName se ocupado"]
+    H --> I["rename + FileMeta::renamed + FolderAccess::renamed + log MOVER"]
+```
+
+| Passo | Código |
+|---|---|
+| Seletor de destino (reaproveita a árvore) | `moveModal` em `src/Views/modals/admin.php`; `public/assets/js/tree.js` com `data-tree-select` |
+| Arrastar item para pasta, nó da árvore ou migalha | `public/assets/js/move.js` → `IntranetUI.postAction('move', ...)` |
+| Soltar arquivos do computador numa pasta | `move.js` → XHR `upload` com `?dir=<pasta>` (mesma rota do upload) |
+| Regras do servidor (a UI só espelha) | `FilesController::move`, `FileStorage::isSameOrInside`, `reserveKeepingName` |
+| Nome ocupado no destino | arquivo: `a (1).txt` sem limpar o nome (reserva atômica, dois "mover" não se sobrescrevem); pasta: `uniqueName` |

@@ -43,6 +43,7 @@ final class Application
         'create_user'     => [UsersController::class, 'create'],
         'delete_user'     => [UsersController::class, 'delete'],
         'set_folder_access' => [FilesController::class, 'setFolderAccess'],
+        'move'            => [FilesController::class, 'move'],
         'create_group'    => [GroupsController::class, 'create'],
         'delete_group'    => [GroupsController::class, 'delete'],
         'set_group_members' => [GroupsController::class, 'setMembers'],

@@ -45,6 +45,20 @@ test('8 uploads simultâneos com o MESMO nome: nenhum sobrescreve o outro (reser
     check(is_file("$dir/relatorio.pdf") && is_file("$dir/relatorio (1).pdf") && is_file("$dir/relatorio (7).pdf"), 'sequência (1)…(7) incompleta');
 });
 
+test('8 "mover" simultâneos para o mesmo destino com o MESMO nome: nenhum sobrescreve o outro (reserveKeepingName)', function () use ($tmp) {
+    $dir = "$tmp/uploads-k";
+    mkdir($dir, 0775, true);
+    $res = parallel(8, function ($i, $flag) use ($dir) { return ['upload', $dir, "d'ap&mp.pdf", (string) $i, $flag, 'keep']; });
+    $names = [];
+    foreach ($res as $i => $r) {
+        check($r['code'] === 0, "worker $i falhou: " . $r['err']);
+        $names[] = $r['out'];
+    }
+    check(count(array_unique($names)) === 8, 'nomes repetidos entre processos: ' . json_encode($names));
+    check(in_array("d'ap&mp.pdf", $names, true), 'o primeiro deveria ficar com o nome exato');
+    check(count(glob("$dir/*")) === 8, 'arquivos perdidos/sobrescritos: ' . count(glob("$dir/*")));
+});
+
 test('reserveName: não reaproveita nome existente, pula buracos e respeita extensão', function () use ($config, $tmp) {
     $dir = "$tmp/uploads-b";
     mkdir($dir, 0775, true);

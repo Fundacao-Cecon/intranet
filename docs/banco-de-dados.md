@@ -14,10 +14,10 @@ SQLite em `storage/database.db`. O esquema é criado/atualizado em todo boot por
 | created_at, last_login | DATETIME | `last_login` em horário local |
 
 ### `logs`
-Auditoria: `data_hora` (local), `ip`, `usuario`, `acao`, `detalhe`. Ações: `LOGIN`, `LOGIN_FALHA`, `LOGIN_BLOQUEADO`, `SENHA`, `USER`, `PASTA`, `RENAME`, `UPLOAD`, `BLOQUEIO`, `DOWNLOAD`, `ZIP`, `LIXEIRA`, `RESTAURAR`, `ACESSO` (regra de pasta), `GRUPO`. Retenção: 180 dias.
+Auditoria: `data_hora` (local), `ip`, `usuario`, `acao`, `detalhe`. Ações: `LOGIN`, `LOGIN_FALHA`, `LOGIN_BLOQUEADO`, `SENHA`, `USER`, `PASTA`, `RENAME`, `UPLOAD`, `BLOQUEIO`, `DOWNLOAD`, `ZIP`, `LIXEIRA`, `RESTAURAR`, `ACESSO` (regra de pasta), `GRUPO`, `MOVER`. Retenção: 180 dias.
 
 ### `files_meta`
-Quem criou/editou. `filepath` é **relativo à raiz de uploads**; itens na lixeira levam o prefixo `.lixeira/` (compatível com o banco antigo). Ao renomear/mover pasta, os filhos são atualizados por prefixo.
+Quem criou/editou. `filepath` é **relativo à raiz de uploads**; itens na lixeira levam o prefixo `.lixeira/` (compatível com o banco antigo). Ao renomear/mover pasta (inclusive pelo "Mover"), os filhos são atualizados por prefixo.
 
 ### `login_attempts` *(nova)*
 `ip`, `username` (minúsculo), `attempted_at` (epoch). Alimenta o bloqueio de 5 falhas / 15 min. Registros > 24h são apagados.

@@ -72,12 +72,13 @@ final class FilesController extends Controller
             $acc = '';
             foreach (explode('/', $sub) as $part) {
                 $acc .= ($acc === '' ? '' : '/') . $part;
-                $breadcrumbs[] = ['nome' => $part, 'url' => url(['dir' => $acc] + ($isTrash ? ['mode' => 'trash'] : []))];
+                $breadcrumbs[] = ['nome' => $part, 'path' => $acc, 'url' => url(['dir' => $acc] + ($isTrash ? ['mode' => 'trash'] : []))];
             }
         }
 
         view('files/index', [
             'tree'        => $isTrash ? null : $this->buildTree($sub),
+            'currentDir'  => $sub,
             'flash'       => $this->takeFlash(),
             'isTrash'     => $isTrash,
             'isAdmin'     => $isAdmin,
@@ -129,11 +130,15 @@ final class FilesController extends Controller
     /**
      * Árvore inicial da página: a raiz e, aberta, a cadeia até a pasta atual (o resto o JS carrega).
      *
-     * @return array [array $nodes, string $current]
+     * 'rootNodes' é só o primeiro nível, sem filhas abertas: alimenta o seletor de destino do "Mover".
+     *
+     * @return array ['nodes' => array, 'current' => string, 'rootNodes' => array]
      */
     private function buildTree(string $sub): array
     {
-        return ['nodes' => $this->attachChain($this->treeLevel(''), FolderAccess::chain($sub), 0), 'current' => $sub];
+        $root = $this->treeLevel('');
+        $closed = array_map(function ($n) { return $n + ['children' => null]; }, $root);
+        return ['nodes' => $this->attachChain($root, FolderAccess::chain($sub), 0), 'current' => $sub, 'rootNodes' => $closed];
     }
 
     private function attachChain(array $nodes, array $chain, int $depth): array
@@ -227,6 +232,65 @@ final class FilesController extends Controller
                 $this->redirectBack();
             }
             $this->flash('Erro ao mover.', 'error');
+        }
+        $this->redirectBack();
+    }
+
+    /**
+     * Move arquivos e pastas da pasta atual para outra pasta (admin). Cada item é tratado sozinho:
+     * o que não puder ir (inexistente, oculto, link simbólico, pasta para dentro de si mesma) é
+     * ignorado e contado. Nome já usado no destino ganha "(1)", como ao restaurar da lixeira.
+     * Autoria e regras de acesso acompanham o item.
+     */
+    public function move(): void
+    {
+        $this->requireAdmin();
+        $s = $this->ctx->storage;
+        list($area, $absDir, $sub) = $this->location();
+
+        $items = $this->postNames('items');
+        $dest = trim(str_replace('\\', '/', $this->post('dest')), '/');
+        list($destAbs, $destSub) = $s->resolve(FileStorage::AREA_FILES, $dest);
+
+        if ($area !== FileStorage::AREA_FILES || !$items) {
+            $this->flash('Nada selecionado.', 'error');
+        } elseif ($destSub !== $dest) { // resolve() devolve a raiz para destino inexistente ou suspeito
+            $this->flash('Pasta de destino inválida.', 'error');
+        } elseif ($destSub === $sub) {
+            $this->flash('Os itens já estão nessa pasta.', 'warning');
+        } else {
+            $moved = 0;
+            $skipped = 0;
+            $user = (string) $this->ctx->auth->username();
+            foreach ($items as $name) {
+                $src = $absDir . $name;
+                $from = $s->metaPath($area, $sub, $name);
+                $intoItself = is_dir($src) && $s->isSameOrInside($destSub, $from);
+                if ($s->isHidden($name) || !file_exists($src) || is_link($src) || $intoItself) {
+                    $skipped++;
+                    continue;
+                }
+                // Arquivo: o nome é reservado de forma atômica, então dois "mover" para o mesmo destino não se
+                // sobrescrevem. Pasta não tem como reservar (rename sobre pasta existente falha no Windows).
+                $isFile = is_file($src);
+                $final = $isFile
+                    ? $s->reserveKeepingName($destAbs, $name)
+                    : (file_exists($destAbs . $name) ? $s->uniqueName($destAbs, $name) : $name);
+                if (!@rename($src, $destAbs . $final)) {
+                    if ($isFile) {
+                        @unlink($destAbs . $final); // desistiu: não deixa o placeholder vazio
+                    }
+                    $skipped++;
+                    continue;
+                }
+                $to = $s->metaPath(FileStorage::AREA_FILES, $destSub, $final);
+                $this->ctx->meta->renamed($from, $to, $user);
+                $this->ctx->access->renamed($from, $to);
+                $this->ctx->logger->log('MOVER', $name . ' -> ' . ($destSub === '' ? '(início)' : $destSub));
+                $moved++;
+            }
+            $msg = $moved . ($moved === 1 ? ' item movido' : ' itens movidos') . ($skipped ? ", $skipped ignorado(s)." : '.');
+            $this->flash($msg, $moved === 0 ? 'error' : ($skipped ? 'warning' : 'success'));
         }
         $this->redirectBack();
     }

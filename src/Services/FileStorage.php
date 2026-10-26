@@ -120,6 +120,27 @@ final class FileStorage
         throw new \RuntimeException('Não foi possível reservar um nome livre em ' . $dir);
     }
 
+    /**
+     * Reserva o nome de um arquivo que vai chegar por rename (mover), SEM limpar o nome: o que já existe
+     * não é renomeado pelo caminho. Cria o arquivo vazio de forma atômica ("x") e, se o nome estiver
+     * ocupado, tenta "a (1).pdf", "a (2).pdf"... Dois "mover" para o mesmo destino nunca se sobrescrevem;
+     * o rename seguinte substitui o placeholder (ou o chamador o apaga).
+     */
+    public function reserveKeepingName(string $dir, string $nome): string
+    {
+        $info = pathinfo($nome);
+        $ext = isset($info['extension']) ? '.' . $info['extension'] : '';
+        for ($n = 0; $n < 100000; $n++) {
+            $final = $this->candidate($info['filename'], $ext, $n);
+            $h = @fopen($dir . $final, 'x');
+            if ($h !== false) {
+                fclose($h);
+                return $final;
+            }
+        }
+        throw new \RuntimeException('Não foi possível reservar um nome livre em ' . $dir);
+    }
+
     /** @return array [string $baseLimpa, string $extComPonto] */
     private function splitName(string $nome): array
     {
@@ -161,6 +182,15 @@ final class FileStorage
         natcasesort($dirs);
         natcasesort($files);
         return [array_values($dirs), array_values($files)];
+    }
+
+    /**
+     * $path é $ancestor ou está dentro dele? Caminhos lógicos relativos (sem "/" nas pontas);
+     * compara por segmento ("a" não contém "ab") e ignora a caixa no Windows.
+     */
+    public function isSameOrInside(string $path, string $ancestor): bool
+    {
+        return $this->startsWith($path . '/', $ancestor . '/');
     }
 
     /** Tem alguma subpasta (não oculta)? Para ao achar a primeira: serve à árvore lateral. */

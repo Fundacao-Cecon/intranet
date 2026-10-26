@@ -42,7 +42,7 @@ Regra de dependência: Views não consultam banco nem disco; Controllers não mo
 | GET | `logout` | `AuthController::logout` | logado |
 | POST | `login` | `AuthController::login` | público |
 | POST | `change_password` | `AuthController::changePassword` | público* / logado |
-| POST | `mkdir`, `rename`, `upload`, `trash` | `FilesController` | admin |
+| POST | `mkdir`, `rename`, `upload`, `trash`, `move` | `FilesController` | admin |
 | POST | `zip` | `FilesController::zip` | logado |
 | POST | `restore`, `purge`, `empty_trash` | `TrashController` | admin |
 | POST | `create_user`, `delete_user` | `UsersController` | admin |
