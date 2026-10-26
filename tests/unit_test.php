@@ -137,6 +137,18 @@ test('metaPath: lixeira ganha prefixo .lixeira/', function () use ($fs) {
     check($fs->metaPath('files', 'Docs', '') === 'Docs', 'só a pasta');
 });
 
+test('hasSubdirs: só arquivos, ocultos, subpasta e pasta inexistente', function () use ($fs, $tmp) {
+    $base = "$tmp/uploads/Arvore";
+    mkdir("$base/so-arquivos", 0775, true);
+    file_put_contents("$base/so-arquivos/a.txt", 'x');
+    mkdir("$base/so-oculta/.lixeira", 0775, true);     // nome oculto não conta como subpasta
+    mkdir("$base/com-sub/filha", 0775, true);
+    check($fs->hasSubdirs("$base/so-arquivos/") === false, 'só arquivos');
+    check($fs->hasSubdirs("$base/so-oculta/") === false, 'só pasta oculta');
+    check($fs->hasSubdirs("$base/com-sub/") === true, 'com subpasta');
+    check($fs->hasSubdirs("$base/nao-existe/") === false, 'inexistente');
+});
+
 test('listDir: oculta itens ocultos, pastas e arquivos separados, ordem natural', function () use ($fs, $tmp) {
     $d = "$tmp/uploads/ord";
     mkdir("$d/b-pasta", 0775, true);

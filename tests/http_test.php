@@ -804,6 +804,91 @@ test('grupos: nomes inválidos ou repetidos (sem diferenciar maiúsculas) são r
 });
 
 // ===================================================================================
+suite('Árvore de pastas (GET ?action=tree)');
+// ===================================================================================
+
+foreach (["$storage/uploads/Arv/Sub/Fundo", "$storage/uploads/Arv/Fechada/Interna", "$storage/uploads/Arv/Vazia", "$storage/uploads/Cães & gatos"] as $d) { mkdir($d, 0775, true); }
+file_put_contents("$storage/uploads/Arv/solto.txt", 'arquivo não entra na árvore');
+$admin->post('/index.php?dir=Arv', ['action' => 'set_folder_access', 'folder' => 'Fechada', 'mode' => 'restrict', 'users' => [$uid('rh2')]]);
+$ajax = ['X-Requested-With: XMLHttpRequest'];
+$tree = function (Client $c, string $dir = '', string $extra = '') use ($ajax): array {
+    $r = $c->get('/index.php?action=tree&dir=' . rawurlencode($dir) . $extra, $ajax);
+    check($r->status === 200 && stripos($r->h('content-type'), 'application/json') === 0, "tree($dir): status {$r->status} " . $r->h('content-type'));
+    return json_decode($r->body, true);
+};
+$byName = function (array $t): array { return array_column($t['children'], null, 'name'); };
+
+test('anônimo não recebe a árvore (cai no login)', function () use ($anon) {
+    $r = $anon->get('/index.php?action=tree');
+    check(strpos($r->body, 'Acesso Intranet') !== false && strpos($r->body, '"children"') === false, 'vazou JSON sem login');
+});
+
+test('raiz: só subpastas (sem arquivos nem ocultos), em ordem natural, com hasChildren certo', function () use ($user, $tree, $byName) {
+    $t = $tree($user);
+    check($t['dir'] === '', 'dir');
+    $names = array_column($t['children'], 'name');
+    check(in_array('Docs', $names, true) && in_array('Arv', $names, true) && in_array('Vazia', $names, true), json_encode($names));
+    foreach (['logo.png', 'evil.svg', '.htaccess', 'web.config', 'database.db', '.lixeira'] as $no) {
+        check(!in_array($no, $names, true), "$no não é pasta");
+    }
+    $by = $byName($t);
+    check($by['Docs']['hasChildren'] === true && $by['Vazia']['hasChildren'] === false, 'hasChildren de Docs/Vazia');
+    check($by['Docs']['path'] === 'Docs' && $by['Docs']['locked'] === false, 'path/locked');
+    $sorted = $names;
+    natcasesort($sorted);
+    check($names === array_values($sorted), 'ordem natural');
+});
+
+test('subpasta: lista só as filhas diretas; arquivo solto não aparece; nome com & e acento vai intacto no JSON', function () use ($user, $tree, $byName) {
+    $t = $tree($user, 'Arv');
+    check($t['dir'] === 'Arv', 'dir');
+    $by = $byName($t);
+    check(array_keys($by) === ['Fechada', 'Sub', 'Vazia'] || (isset($by['Sub'], $by['Vazia'], $by['Fechada']) && count($by) === 3), json_encode(array_keys($by)));
+    check($by['Sub']['path'] === 'Arv/Sub' && $by['Sub']['hasChildren'] === true && $by['Vazia']['hasChildren'] === false, 'filhas');
+    check(isset($byName($tree($user))['Cães & gatos']), 'nome com & e acento');
+});
+
+test('pasta fechada: vem com cadeado e sem filhas; pedir o conteúdo dela é 403 (não vaza o que há dentro)', function () use ($outro, $rh2, $admin, $tree, $byName, $ajax) {
+    $by = $byName($tree($outro, 'Arv'));
+    check($by['Fechada']['locked'] === true && $by['Fechada']['hasChildren'] === false, 'outro: ' . json_encode($by['Fechada']));
+    check($by['Sub']['locked'] === false, 'Sub continua aberta');
+    $r = $outro->get('/index.php?action=tree&dir=Arv/Fechada', $ajax);
+    check($r->status === 403 && strpos($r->body, 'Interna') === false && json_decode($r->body, true)['status'] === 'error', 'dir fechada: ' . $r->status . ' ' . $r->body);
+    $r = $outro->get('/index.php?action=tree&dir=Arv/Fechada/Interna', $ajax);
+    check($r->status === 403 && strpos($r->body, 'Interna') === false, 'filha da fechada');
+    $r = $outro->get('/index.php?action=tree&dir=Arv/Fechada');
+    check($r->status === 403 && strpos($r->body, 'Interna') === false, 'sem cabeçalho ajax também é 403');
+    check($byName($tree($rh2, 'Arv'))['Fechada']['locked'] === false && $byName($tree($rh2, 'Arv/Fechada'))['Interna']['path'] === 'Arv/Fechada/Interna', 'rh2 deveria entrar');
+    check($byName($tree($admin, 'Arv'))['Fechada']['locked'] === false, 'admin nunca vê cadeado');
+});
+
+test('traversal em dir= cai na raiz; mode=trash só vale para admin (e vem vazio)', function () use ($user, $admin, $tree) {
+    foreach (['..', '../..', 'Docs/../..', '..%2f', '/etc', 'Docs%00'] as $d) {
+        $r = $user->get('/index.php?action=tree&dir=' . $d, ['X-Requested-With: XMLHttpRequest']);
+        $j = json_decode($r->body, true);
+        check($r->status === 200 && $j['dir'] === '' && strpos($r->body, 'segredo') === false, "$d => {$r->status} {$r->body}");
+    }
+    check($tree($admin, '', '&mode=trash')['children'] === [], 'lixeira não tem árvore');
+    check(count($tree($user, '', '&mode=trash')['children']) > 0, 'usuário comum ignora mode=trash');
+});
+
+test('página: árvore com a cadeia da pasta atual aberta, pasta atual marcada, cadeado sem link; lixeira sem árvore', function () use ($outro, $admin) {
+    $b = $outro->get('/index.php?dir=' . rawurlencode('Arv/Sub'))->body;
+    check(strpos($b, 'role="tree"') !== false && strpos($b, 'data-tree-url') !== false && strpos($b, 'assets/js/tree.js') !== false, 'estrutura da árvore');
+    check(strpos($b, 'data-path="Arv"') !== false && strpos($b, 'data-path="Arv/Sub/Fundo"') !== false, 'cadeia aberta até as filhas da atual');
+    check(preg_match('/aria-current="page"[^>]*>.*?Sub/s', $b) === 1, 'pasta atual não está marcada');
+    check(strpos($b, 'tree-locked') !== false && strpos($b, 'data-path="Arv/Fechada/Interna"') === false, 'fechada deveria ser só cadeado, sem filhas');
+    check(strpos($b, 'data-path="Arv/Fechada"') !== false && preg_match('/data-path="Arv\/Fechada"[^>]*aria-disabled="true"|aria-disabled="true"[^>]*data-path="Arv\/Fechada"/', $b) === 1, 'aria-disabled na fechada');
+    $t = $admin->get('/index.php?mode=trash')->body;
+    check(strpos($t, 'data-tree') === false && strpos($t, 'tree.js') === false, 'lixeira não deveria ter árvore');
+});
+
+test('página: nomes de pasta saem escapados na árvore', function () use ($user) {
+    $b = $user->get('/')->body;
+    check(strpos($b, 'Cães &amp; gatos') !== false && strpos($b, 'Cães & gatos</a>') === false, 'nome não escapado');
+});
+
+// ===================================================================================
 suite('Desempenho básico');
 // ===================================================================================
 

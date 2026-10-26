@@ -40,6 +40,7 @@ const pages = [
     ['user',         'painel do usuário comum',   ['theme.js', 'app.js'],   ['changePasswordModal']],
     ['trash',        'lixeira',                   ['theme.js', 'app.js'],   []],
     ['images',       'pasta com imagem (lightbox)', ['theme.js', 'app.js'], ['lightboxModal']],
+    ['sub',          'subpasta com a árvore aberta', ['theme.js', 'app.js', 'tree.js'], []],
 ];
 
 for (const [page, title, scripts, modals] of pages) {
