@@ -2,7 +2,7 @@
 /**
  * Trabalhador dos testes de concorrência (tests/concurrency_test.php). Uso:
  *
- *   php race_worker.php upload  <pasta> <nome> <id> <arquivo-largada> [legacy]
+ *   php race_worker.php upload  <pasta> <nome> <id> <arquivo-largada> [legacy|keep]
  *   php race_worker.php meta    <storage> <id> <iteracoes> <arquivo-largada>
  *   php race_worker.php delete  <storage> <id-quem-age> <id-alvo> <arquivo-largada>
  *   php race_worker.php rules   <storage> <id> <iteracoes> <arquivo-largada>
@@ -58,11 +58,14 @@ $mode = $argv[1] ?? '';
 if ($mode === 'upload') {
     [, , $dir, $name, $id, $flag] = $argv;
     $legacy = ($argv[6] ?? '') === 'legacy';
+    $keep = ($argv[6] ?? '') === 'keep';
     $fs = new FileStorage($dir, $dir . '-trash', $config['hidden_names']);
     $abs = $fs->root(FileStorage::AREA_FILES);
     waitStart($flag);
     if ($legacy) {
         $final = $fs->uniqueName($abs, $name);   // comportamento antigo: só escolhe o nome
+    } elseif ($keep) {
+        $final = $fs->reserveKeepingName($abs, $name);   // mover: nome exato quando livre
     } else {
         $final = $fs->reserveName($abs, $name);  // comportamento novo: reserva atomicamente
     }

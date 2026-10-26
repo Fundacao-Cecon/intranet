@@ -137,6 +137,21 @@ test('metaPath: lixeira ganha prefixo .lixeira/', function () use ($fs) {
     check($fs->metaPath('files', 'Docs', '') === 'Docs', 'só a pasta');
 });
 
+test('reserveKeepingName: nome exato quando livre (sem limpar), reserva o arquivo e cai em (1) quando ocupado', function () use ($fs, $tmp) {
+    $dir = "$tmp/uploads/Reserva/";
+    mkdir($dir, 0775, true);
+    check($fs->reserveKeepingName($dir, "d'ap&mp.txt") === "d'ap&mp.txt" && is_file($dir . "d'ap&mp.txt") && filesize($dir . "d'ap&mp.txt") === 0, 'nome exato e reservado');
+    check($fs->reserveKeepingName($dir, "d'ap&mp.txt") === "d'ap&mp (1).txt", 'ocupado: sufixo sem limpar o nome');
+    check($fs->reserveKeepingName($dir, 'a.txt') === 'a.txt' && $fs->reserveKeepingName($dir, 'a.txt') === 'a (1).txt', 'sequência');
+});
+
+test('isSameOrInside: o próprio caminho e os de dentro; prefixo parecido não conta; raiz vazia', function () use ($fs) {
+    check($fs->isSameOrInside('a', 'a') && $fs->isSameOrInside('a/b', 'a') && $fs->isSameOrInside('a/b/c', 'a/b'), 'dentro');
+    check(!$fs->isSameOrInside('ab', 'a') && !$fs->isSameOrInside('a', 'a/b') && !$fs->isSameOrInside('b/a', 'a'), 'fora');
+    check(!$fs->isSameOrInside('', 'a') && $fs->isSameOrInside('', ''), 'raiz');
+    check(DIRECTORY_SEPARATOR === '\\' ? $fs->isSameOrInside('A/B', 'a') : !$fs->isSameOrInside('A/B', 'a'), 'caixa: só o Windows ignora');
+});
+
 test('hasSubdirs: só arquivos, ocultos, subpasta e pasta inexistente', function () use ($fs, $tmp) {
     $base = "$tmp/uploads/Arvore";
     mkdir("$base/so-arquivos", 0775, true);

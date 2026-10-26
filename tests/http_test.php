@@ -889,6 +889,116 @@ test('página: nomes de pasta saem escapados na árvore', function () use ($user
 });
 
 // ===================================================================================
+suite('Mover itens entre pastas (action=move)');
+// ===================================================================================
+
+foreach (['Origem/Pasta1', 'Origem/Pasta2/Interna', 'Origem/Pasta2x', 'Destino/Fundo'] as $d) { mkdir("$storage/uploads/Mv/$d", 0775, true); }
+$admin->upload('/index.php?dir=Mv/Origem', ['f1.txt' => 'ORIGEM-F1', 'f2.txt' => 'ORIGEM-F2']);
+$admin->upload('/index.php?dir=Mv/Origem/Pasta1', ['inner.txt' => 'DENTRO']);
+$admin->upload('/index.php?dir=Mv/Destino', ['f1.txt' => 'DESTINO-F1']);
+file_put_contents("$storage/uploads/Mv/Origem/d'ap&mp.txt", 'NOME-ESQUISITO');
+$mv = function (Client $c, string $dir, array $items, string $dest, bool $csrf = true) {
+    return $c->post('/index.php?dir=' . rawurlencode($dir), ['action' => 'move', 'items' => $items, 'dest' => $dest], $csrf);
+};
+$dl = function (Client $c, string $dir, string $file) { return $c->get('/index.php?action=download&dir=' . rawurlencode($dir) . '&file=' . rawurlencode($file)); };
+
+test('mover arquivo: sai da origem, chega ao destino; nome ocupado ganha (1) sem sobrescrever; autoria acompanha', function () use ($admin, $mv, $storage) {
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['f1.txt', 'f2.txt'], 'Mv/Destino'));
+    check($r->flash() === '2 itens movidos.', 'flash: ' . $r->flash());
+    check(!file_exists("$storage/uploads/Mv/Origem/f1.txt") && !file_exists("$storage/uploads/Mv/Origem/f2.txt"), 'ficou na origem');
+    check(file_get_contents("$storage/uploads/Mv/Destino/f1.txt") === 'DESTINO-F1', 'sobrescreveu o arquivo do destino');
+    check(file_get_contents("$storage/uploads/Mv/Destino/f1 (1).txt") === 'ORIGEM-F1' && file_get_contents("$storage/uploads/Mv/Destino/f2.txt") === 'ORIGEM-F2', 'conteúdo movido');
+    check(dbq("SELECT 1 FROM files_meta WHERE filepath = 'Mv/Destino/f2.txt'") && !dbq("SELECT 1 FROM files_meta WHERE filepath = 'Mv/Origem/f2.txt'"), 'metadado não acompanhou');
+    check((int) dbq("SELECT COUNT(*) n FROM logs WHERE acao = 'MOVER'")[0]['n'] >= 2, 'MOVER não registrado');
+});
+
+test('sem colisão o nome é mantido exatamente (aspas, &) e o conteúdo vai inteiro', function () use ($admin, $mv, $storage) {
+    $admin->post('/index.php?dir=Mv/Destino', ['action' => 'mkdir', 'nome_pasta' => 'Esq']);
+    $mv($admin, 'Mv/Origem', ["d'ap&mp.txt"], 'Mv/Destino/Esq');
+    check(file_get_contents("$storage/uploads/Mv/Destino/Esq/d'ap&mp.txt") === 'NOME-ESQUISITO', 'nome alterado ao mover');
+});
+
+test('mover pasta leva o conteúdo, a autoria dos filhos e a regra de acesso; quem estava barrado continua barrado', function () use ($admin, $mv, $outro, $rh2, $storage, $uid, $dl) {
+    $admin->post('/index.php?dir=Mv/Origem', ['action' => 'set_folder_access', 'folder' => 'Pasta1', 'mode' => 'restrict', 'users' => [$uid('rh2')]]);
+    check($outro->get('/index.php?dir=Mv/Origem/Pasta1')->status === 302, 'pré-condição: outro barrado');
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta1'], 'Mv/Destino'));
+    check($r->flash() === '1 item movido.' && !is_dir("$storage/uploads/Mv/Origem/Pasta1") && is_file("$storage/uploads/Mv/Destino/Pasta1/inner.txt"), 'pasta: ' . $r->flash());
+    check(dbq("SELECT 1 FROM files_meta WHERE filepath = 'Mv/Destino/Pasta1/inner.txt'") && !dbq("SELECT 1 FROM files_meta WHERE filepath LIKE 'Mv/Origem/Pasta1%'"), 'autoria dos filhos');
+    check(dbq("SELECT 1 FROM folder_rules WHERE path = 'Mv/Destino/Pasta1'") && !dbq("SELECT 1 FROM folder_rules WHERE path = 'Mv/Origem/Pasta1'"), 'regra não acompanhou');
+    check($outro->get('/index.php?dir=Mv/Destino/Pasta1')->status === 302 && $dl($outro, 'Mv/Destino/Pasta1', 'inner.txt')->status === 403, 'a pasta movida ficou pública');
+    check($dl($rh2, 'Mv/Destino/Pasta1', 'inner.txt')->body === 'DENTRO', 'rh2 deveria continuar entrando');
+});
+
+test('mover para dentro de pasta restrita aplica a restrição ao que chegou', function () use ($admin, $mv, $outro, $storage, $dl) {
+    $admin->upload('/index.php?dir=Mv/Origem', ['sigilo.txt' => 'SIGILO']);
+    check($dl($outro, 'Mv/Origem', 'sigilo.txt')->body === 'SIGILO', 'pré-condição: aberto');
+    $mv($admin, 'Mv/Origem', ['sigilo.txt'], 'Mv/Destino/Pasta1');
+    check($dl($outro, 'Mv/Destino/Pasta1', 'sigilo.txt')->status === 403, 'arquivo movido para pasta restrita continuou acessível');
+});
+
+test('lote misto: o que não pode ir é ignorado e contado; o resto vai', function () use ($admin, $mv, $storage) {
+    file_put_contents("$storage/uploads/Mv/Origem/.htaccess", 'Deny from all');
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta2x', 'nao-existe.txt', '.htaccess', '..', '../x'], 'Mv/Destino/Fundo'));
+    check($r->flash() === '1 item movido, 3 ignorado(s).', 'flash: ' . $r->flash());
+    check(is_dir("$storage/uploads/Mv/Destino/Fundo/Pasta2x") && is_file("$storage/uploads/Mv/Origem/.htaccess") && !file_exists("$storage/uploads/Mv/Destino/Fundo/.htaccess"), 'oculto não pode sair do lugar');
+});
+
+test('destino inválido não move nada: inexistente, traversal, arquivo, pasta atual, lixeira', function () use ($admin, $mv, $storage) {
+    file_put_contents("$storage/uploads/Mv/Origem/fica.txt", 'FICA');
+    foreach (['nao-existe', 'Mv/nao-existe', '../..', 'Mv/../..', 'logo.png', '.lixeira', 'Mv//Destino', '/etc'] as $bad) {
+        $r = $admin->follow($mv($admin, 'Mv/Origem', ['fica.txt'], $bad));
+        check($r->flash() === 'Pasta de destino inválida.', json_encode($bad) . ' => ' . $r->flash());
+        check(is_file("$storage/uploads/Mv/Origem/fica.txt"), "$bad moveu mesmo assim");
+    }
+    check($admin->follow($mv($admin, 'Mv/Origem', ['fica.txt'], 'Mv/Origem'))->flash() === 'Os itens já estão nessa pasta.', 'mesma pasta');
+    check($admin->follow($mv($admin, 'Mv/Origem', [], 'Mv/Destino'))->flash() === 'Nada selecionado.', 'sem itens');
+    $r = $admin->post('/index.php?dir=Mv/Origem', ['action' => 'move', 'items' => 'fica.txt', 'dest' => 'Mv/Destino']);
+    check($admin->follow($r)->flash() === 'Nada selecionado.' && is_file("$storage/uploads/Mv/Origem/fica.txt"), 'items como texto simples');
+});
+
+test('pasta não vai para dentro de si mesma nem de descendente; prefixo parecido (Pasta2 x Pasta2x) é outra pasta', function () use ($admin, $mv, $storage) {
+    foreach (['Mv/Origem/Pasta2', 'Mv/Origem/Pasta2/Interna'] as $bad) {
+        $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta2'], $bad));
+        check($r->flash() === '0 itens movidos, 1 ignorado(s).', "$bad => " . $r->flash());
+        check(is_dir("$storage/uploads/Mv/Origem/Pasta2/Interna"), "$bad: a pasta mudou de lugar");
+    }
+    mkdir("$storage/uploads/Mv/Origem/Pasta2x2", 0775);
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta2'], 'Mv/Destino'));
+    check($r->flash() === '1 item movido.' && is_dir("$storage/uploads/Mv/Destino/Pasta2/Interna"), 'Pasta2 para fora: ' . $r->flash());
+    $admin->follow($mv($admin, 'Mv/Destino', ['Pasta2'], 'Mv/Destino/Fundo/Pasta2x'));
+    check(is_dir("$storage/uploads/Mv/Destino/Fundo/Pasta2x/Pasta2/Interna"), 'prefixo parecido deveria aceitar');
+});
+
+test('mover para o início (raiz) e dentro da raiz para uma pasta', function () use ($admin, $mv, $storage) {
+    $admin->upload('/index.php?dir=Mv/Destino/Esq', ['sobe.txt' => 'SOBE']);
+    $r = $admin->follow($mv($admin, 'Mv/Destino/Esq', ['sobe.txt'], ''));
+    check($r->flash() === '1 item movido.' && file_get_contents("$storage/uploads/sobe.txt") === 'SOBE', 'raiz: ' . $r->flash());
+    $admin->follow($mv($admin, '', ['sobe.txt'], 'Docs'));
+    check(is_file("$storage/uploads/Docs/sobe.txt") && !file_exists("$storage/uploads/sobe.txt"), 'raiz -> Docs');
+});
+
+test('usuário comum não move; sem CSRF = 419; na lixeira não move; mover não escapa da raiz', function () use ($user, $admin, $mv, $storage) {
+    file_put_contents("$storage/uploads/Mv/Origem/alvo.txt", 'ALVO');
+    $r = $user->follow($mv($user, 'Mv/Origem', ['alvo.txt'], 'Mv/Destino'));
+    check($r->flash() === 'Acesso negado.' && is_file("$storage/uploads/Mv/Origem/alvo.txt"), 'usuário comum moveu: ' . $r->flash());
+    check($mv($admin, 'Mv/Origem', ['alvo.txt'], 'Mv/Destino', false)->status === 419 && is_file("$storage/uploads/Mv/Origem/alvo.txt"), 'sem CSRF');
+    file_put_contents("$storage/trash/preso.txt", 'LIXO');
+    $r = $admin->post('/index.php?mode=trash', ['action' => 'move', 'items' => ['preso.txt'], 'dest' => 'Mv/Destino']);
+    check(is_file("$storage/trash/preso.txt") && !file_exists("$storage/uploads/Mv/Destino/preso.txt"), 'moveu da lixeira');
+    @unlink("$storage/trash/preso.txt");
+    $r = $admin->post('/index.php?dir=Mv/Origem', ['action' => 'move', 'items' => ['../../segredo.txt', '..\\..\\segredo.txt'], 'dest' => 'Mv/Destino']);
+    check(!file_exists("$storage/uploads/Mv/Destino/segredo.txt"), 'traversal em items[]');
+});
+
+test('página do admin tem botões de mover; a do usuário comum, não', function () use ($admin, $user) {
+    $b = $admin->get('/index.php?dir=Mv/Destino')->body;
+    check(strpos($b, 'data-move="f2.txt"') !== false && strpos($b, 'id="btnMove"') !== false && strpos($b, 'id="moveModal"') !== false && strpos($b, 'assets/js/move.js') !== false, 'admin sem mover');
+    check(strpos($b, 'draggable="true"') !== false && strpos($b, 'data-drop-dir="Mv"') !== false && strpos($b, 'data-current-dir="Mv/Destino"') !== false, 'sem arrastar e soltar');
+    $u = $user->get('/index.php?dir=Mv/Destino')->body;
+    check(strpos($u, 'data-move') === false && strpos($u, 'moveModal') === false && strpos($u, 'draggable') === false && strpos($u, 'move.js') === false, 'usuário comum viu o mover');
+});
+
+// ===================================================================================
 suite('Desempenho básico');
 // ===================================================================================
 

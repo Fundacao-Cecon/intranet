@@ -91,30 +91,34 @@ test('renomear: abre o modal com o nome atual nos dois campos', () => {
     assert.equal(d.querySelector('#newNameInput').value, 'leia-me.txt');
 });
 
-test('ZIP: botão aparece com a contagem, "selecionar todos" marca só arquivos e some ao desmarcar', () => {
+test('ZIP: botão aparece com a contagem de arquivos, "selecionar todos" marca tudo e some ao desmarcar', () => {
     const { document: d } = load('admin', APP);
     const zip = d.querySelector('#btnZip');
-    const checks = [...d.querySelectorAll('.item-check')];
-    assert.ok(checks.length >= 1);
+    const files = [...d.querySelectorAll('.item-check:not([data-dir-item])')];
+    assert.ok(files.length >= 1);
     assert.equal(zip.style.display === 'block', false, 'começa escondido');
 
-    checks[0].checked = true; change(checks[0]);
+    files[0].checked = true; change(files[0]);
     assert.equal(zip.style.display, 'block');
     assert.equal(zip.textContent, 'Baixar 1 (ZIP)');
 
     const all = d.querySelector('#selectAll');
     all.checked = true; change(all);
-    assert.equal(d.querySelectorAll('.item-check:checked').length, checks.length);
-    assert.equal(zip.textContent, `Baixar ${checks.length} (ZIP)`);
+    assert.equal(d.querySelectorAll('.item-check:checked').length, d.querySelectorAll('.item-check').length, 'marca arquivos e pastas (para mover)');
+    assert.equal(zip.textContent, `Baixar ${files.length} (ZIP)`, 'o ZIP conta só arquivos');
 
     all.checked = false; change(all);
     assert.equal(zip.style.display, 'none');
 });
 
-test('pastas não têm caixa de seleção (só arquivos entram no ZIP)', () => {
-    const { document: d } = load('admin', APP);
-    for (const li of d.querySelectorAll('.file-item')) {
-        const isFolder = !!li.querySelector('.fa-folder');
+test('pasta tem caixa de seleção só para admin (mover); para usuário comum só arquivos entram', () => {
+    const admin = load('admin', APP).document;
+    for (const li of admin.querySelectorAll('.file-item')) {
+        assert.ok(li.querySelector('.item-check'), 'admin: ' + li.textContent.trim());
+    }
+    const user = load('user', APP).document;
+    for (const li of user.querySelectorAll('.file-item')) {
+        const isFolder = !!li.querySelector('.fa-folder, .fa-lock');
         assert.equal(!!li.querySelector('.item-check'), !isFolder, li.textContent.trim());
     }
 });
@@ -395,7 +399,7 @@ test('árvore: estrutura ARIA, raiz aberta, pastas do primeiro nível e pasta at
     }
     assert.equal(item(d, 'Norma Zero').getAttribute('aria-expanded'), 'false', 'tem subpasta, começa fechada');
     assert.equal(item(d, 'Imagens').hasAttribute('aria-expanded'), false, 'sem subpastas não é expansível');
-    assert.deepEqual([...d.querySelectorAll('[data-tree] [tabindex="0"]')].map((i) => i.getAttribute('data-path')), [''], 'só um item no tab (roving tabindex)');
+    assert.deepEqual([...d.querySelectorAll('#treePanel [tabindex="0"]')].map((i) => i.getAttribute('data-path')), [''], 'só um item no tab (roving tabindex)');
 });
 
 test('árvore: na pasta aberta a cadeia vem aberta e a pasta atual fica marcada', () => {
@@ -552,4 +556,245 @@ test('árvore: usuário comum vê a pasta fechada como cadeado; a lixeira não t
     const trash = load('trash', TREE);
     assert.equal(trash.document.querySelector('[data-tree]'), null);
     assert.equal(trash.document.getElementById('treePanel'), null);
+});
+
+// ---------------------------------------------------------------- mover e arrastar e soltar
+const MOVE = ['theme.js', 'app.js', 'tree.js', 'move.js'];
+
+/** Carrega a página com tudo do mover; `posts` recebe cada formulário enviado como lista [nome, valor]. */
+function loadMove(page, store = {}) {
+    const posts = [];
+    const uploads = [];
+    const ctx = load(page, MOVE, {
+        before(w) {
+            for (const [k, v] of Object.entries(store)) w.localStorage.setItem(k, v);
+            w.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ children: [] }) });
+            w.HTMLFormElement.prototype.submit = function () {
+                posts.push({ action: this.action, fields: [...this.querySelectorAll('input')].map((i) => [i.name, i.value]) });
+            };
+            w.XMLHttpRequest = class {
+                open(method, url) { this.method = method; this.url = url; this.headers = {}; }
+                setRequestHeader(k, v) { this.headers[k] = v; }
+                send(body) { this.body = body; uploads.push(this); }
+            };
+        },
+    });
+    ctx.document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a')) e.preventDefault(); });
+    return Object.assign(ctx, { posts, uploads });
+}
+
+/** Evento de arrastar com um dataTransfer mínimo (o jsdom não traz DragEvent). */
+function drag(w, type, target, { types = [], files = [], related = null } = {}) {
+    const ev = new w.Event(type, { bubbles: true, cancelable: true });
+    const data = {};
+    ev.dataTransfer = { types, files, dropEffect: '', effectAllowed: '', setData(t, v) { data[t] = v; if (!types.includes(t)) types.push(t); } };
+    ev.relatedTarget = related;
+    target.dispatchEvent(ev);
+    return ev;
+}
+const MOVE_TYPE = 'application/x-intranet-move';
+const row = (d, name) => [...d.querySelectorAll('#fileList li.file-item')].find((li) => li.getAttribute('data-name') === name);
+const field = (post, name) => post.fields.filter(([n]) => n === name).map(([, v]) => v);
+const pick = (d, path) => {
+    const li = [...d.querySelectorAll('#moveModal [role=treeitem]')].find((i) => i.getAttribute('data-path') === path);
+    return li.querySelector('a');
+};
+
+test('mover: o botão só aparece com seleção, conta pastas e arquivos e abre o modal com os itens', () => {
+    const { document: d } = loadMove('admin');
+    const btn = d.querySelector('#btnMove');
+    assert.ok(btn, 'admin tem o botão');
+    assert.notEqual(btn.style.display, 'block', 'começa escondido');
+    const folder = d.querySelector('.item-check[data-dir-item]');
+    assert.ok(folder, 'admin pode marcar pasta');
+    folder.checked = true; change(folder);
+    assert.equal(btn.style.display, 'block');
+    assert.equal(btn.textContent, 'Mover 1 item');
+    assert.equal(d.querySelector('#btnZip').style.display, 'none', 'pasta sozinha não habilita o ZIP');
+
+    const all = d.querySelector('#selectAll');
+    all.checked = true; change(all);
+    const total = d.querySelectorAll('.item-check').length;
+    assert.equal(btn.textContent, `Mover ${total} itens`);
+    assert.equal(d.querySelector('#btnZip').textContent, `Baixar ${d.querySelectorAll('.item-check:not([data-dir-item])').length} (ZIP)`, 'ZIP conta só arquivos');
+
+    click(btn);
+    assert.ok(d.querySelector('#moveModal').classList.contains('active'));
+    const items = [...d.querySelectorAll('#moveItems input[name="items[]"]')].map((i) => i.value);
+    assert.equal(items.length, total);
+    assert.match(d.querySelector('#moveSummary').textContent, new RegExp(`${total} itens`));
+    assert.equal(d.querySelector('#moveSubmit').disabled, true, 'sem destino escolhido');
+    assert.equal(d.querySelector('#moveDest').value, '');
+});
+
+test('mover: o botão da linha leva só aquele item; folha de destino escolhida habilita o envio', () => {
+    const { document: d } = loadMove('admin');
+    click(d.querySelector('[data-move="leia-me.txt"]'));
+    assert.deepEqual([...d.querySelectorAll('#moveItems input')].map((i) => i.value), ['leia-me.txt']);
+    assert.equal(d.querySelector('#moveSummary').textContent, 'Mover "leia-me.txt" para:');
+
+    const link = pick(d, 'Imagens');
+    const ev = new d.defaultView.MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(ev);
+    assert.equal(ev.defaultPrevented, true, 'no seletor o link escolhe, não navega');
+    assert.equal(link.closest('[role=treeitem]').getAttribute('aria-selected'), 'true');
+    assert.ok(link.closest('.tree-row').classList.contains('selected'));
+    assert.equal(d.querySelector('#moveDest').value, 'Imagens');
+    assert.equal(d.querySelector('#moveSubmit').disabled, false);
+    assert.match(d.querySelector('#moveHint').textContent, /Destino: Imagens/);
+
+    // a escolha anterior é limpa ao abrir de novo
+    click(d.querySelector('[data-modal-close=moveModal]'));
+    click(d.querySelector('[data-move="leia-me.txt"]'));
+    assert.equal(d.querySelector('#moveDest').value, '');
+    assert.equal(d.querySelector('#moveSubmit').disabled, true);
+    assert.equal(d.querySelector('#moveModal .tree-row.selected'), null);
+});
+
+test('mover: o modal recusa a pasta atual e uma pasta dentro dela mesma, e aceita o início', () => {
+    const { document: d } = loadMove('sub');   // aberta em "Norma Zero/Sub"
+    const dest = d.querySelector('#moveDest');
+    const submit = d.querySelector('#moveSubmit');
+    const tree = d.querySelector('#moveModal [data-tree]');
+    const choose = (path) => tree.dispatchEvent(new d.defaultView.CustomEvent('tree-select', { bubbles: true, detail: { path } }));
+
+    // uma pasta fictícia "Fundo" dentro da pasta atual
+    const li = d.createElement('li');
+    li.className = 'file-item';
+    li.setAttribute('data-name', 'Fundo');
+    li.setAttribute('data-dir', '1');
+    li.innerHTML = '<button type="button" data-move="Fundo"></button>';
+    d.getElementById('fileList').appendChild(li);
+    click(li.querySelector('button'));
+
+    choose('Norma Zero/Sub');
+    assert.equal(submit.disabled, true);
+    assert.match(d.querySelector('#moveHint').textContent, /já estão nesta pasta/);
+    choose('Norma Zero/Sub/Fundo');
+    assert.equal(submit.disabled, true);
+    assert.match(d.querySelector('#moveHint').textContent, /dentro dela mesma/);
+    choose('Norma Zero/Sub/Fundo/Mais');
+    assert.equal(submit.disabled, true, 'descendente da própria pasta');
+    choose('Norma Zero/SubOutra');
+    assert.equal(submit.disabled, false, 'prefixo parecido não é descendente');
+    assert.equal(dest.value, 'Norma Zero/SubOutra');
+    choose('');
+    assert.equal(submit.disabled, false);
+    assert.equal(dest.value, '');
+    assert.match(d.querySelector('#moveHint').textContent, /Destino: Início/);
+});
+
+test('arrastar: item solto sobre uma pasta da lista vira POST move com a pasta como destino', () => {
+    const { document: d, window: w, posts } = loadMove('admin');
+    const file = row(d, 'leia-me.txt');
+    const target = row(d, 'Imagens');
+    assert.equal(file.getAttribute('draggable'), 'true');
+    drag(w, 'dragstart', file);
+    assert.ok(file.classList.contains('dragging'));
+
+    const over = drag(w, 'dragover', target, { types: [MOVE_TYPE] });
+    assert.equal(over.defaultPrevented, true, 'pasta aceita o item');
+    assert.ok(target.classList.contains('drop-target'));
+    const drop = drag(w, 'drop', target, { types: [MOVE_TYPE] });
+    assert.equal(drop.defaultPrevented, true);
+    assert.equal(target.classList.contains('drop-target'), false);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].action, 'http://localhost/index.php');
+    assert.deepEqual(field(posts[0], 'action'), ['move']);
+    assert.deepEqual(field(posts[0], 'items[]'), ['leia-me.txt']);
+    assert.deepEqual(field(posts[0], 'dest'), ['Imagens']);
+    assert.ok(field(posts[0], '_csrf')[0], 'CSRF');
+    drag(w, 'dragend', file);
+    assert.equal(file.classList.contains('dragging'), false);
+});
+
+test('arrastar: item marcado leva a seleção inteira; arquivo não é alvo; pasta não cai em si mesma', () => {
+    const { document: d, window: w, posts } = loadMove('admin');
+    const a = d.querySelector('.item-check[value="leia-me.txt"]');
+    const b = d.querySelector('.item-check[value="Norma Zero"]');
+    a.checked = true; change(a);
+    b.checked = true; change(b);
+    drag(w, 'dragstart', row(d, 'leia-me.txt'));
+    assert.equal(drag(w, 'dragover', row(d, 'leia-me.txt'), { types: [MOVE_TYPE] }).defaultPrevented, false, 'arquivo não recebe');
+    assert.equal(drag(w, 'dragover', row(d, 'Norma Zero'), { types: [MOVE_TYPE] }).defaultPrevented, false, 'a pasta arrastada não cai nela mesma');
+    drag(w, 'drop', row(d, 'Norma Zero'), { types: [MOVE_TYPE] });
+    assert.equal(posts.length, 0);
+    assert.equal(drag(w, 'dragover', row(d, 'Imagens'), { types: [MOVE_TYPE] }).defaultPrevented, true);
+    drag(w, 'drop', row(d, 'Imagens'), { types: [MOVE_TYPE] });
+    assert.deepEqual(field(posts[0], 'items[]').sort(), ['Norma Zero', 'leia-me.txt']);
+    drag(w, 'dragend', row(d, 'leia-me.txt'));
+
+    // sem arraste em andamento (arrasto de fora da página) nada é aceito como "mover"
+    assert.equal(drag(w, 'dragover', row(d, 'Imagens'), { types: [MOVE_TYPE] }).defaultPrevented, false);
+});
+
+test('arrastar: migalha e árvore lateral são alvos; a pasta atual não é', () => {
+    const { document: d, window: w, posts } = loadMove('sub');   // "Norma Zero/Sub": migalhas Início / Norma Zero / Sub
+    const li = d.createElement('li');
+    li.className = 'file-item';
+    li.setAttribute('draggable', 'true');
+    li.setAttribute('data-name', 'avulso.txt');
+    li.setAttribute('data-dir', '0');
+    d.getElementById('fileList').appendChild(li);
+    drag(w, 'dragstart', li);
+
+    const crumbs = [...d.querySelectorAll('.breadcrumbs [data-drop-dir]')];
+    assert.deepEqual(crumbs.map((c) => c.getAttribute('data-drop-dir')), ['', 'Norma Zero', 'Norma Zero/Sub']);
+    assert.equal(drag(w, 'dragover', crumbs[2], { types: [MOVE_TYPE] }).defaultPrevented, false, 'a pasta atual não é destino');
+    assert.equal(drag(w, 'dragover', crumbs[1], { types: [MOVE_TYPE] }).defaultPrevented, true);
+    drag(w, 'drop', crumbs[1], { types: [MOVE_TYPE] });
+    assert.deepEqual(field(posts[0], 'dest'), ['Norma Zero']);
+
+    drag(w, 'dragstart', li);
+    const node = [...d.querySelectorAll('#treePanel [role=treeitem]')].find((i) => i.getAttribute('data-path') === 'Imagens');
+    const nodeRow = node.querySelector('.tree-row');
+    assert.equal(drag(w, 'dragover', nodeRow, { types: [MOVE_TYPE] }).defaultPrevented, true);
+    assert.ok(nodeRow.classList.contains('drop-target'));
+    drag(w, 'drop', nodeRow, { types: [MOVE_TYPE] });
+    assert.deepEqual(field(posts[1], 'dest'), ['Imagens']);
+
+    const locked = node.cloneNode(true);
+    locked.setAttribute('aria-disabled', 'true');
+    node.parentElement.appendChild(locked);
+    assert.equal(drag(w, 'dragover', locked.querySelector('.tree-row'), { types: [MOVE_TYPE] }).defaultPrevented, false, 'pasta fechada não recebe');
+});
+
+test('arrastar: soltar arquivos do computador sobre uma pasta envia para ela (XHR com CSRF), e some o destaque ao sair', () => {
+    const { document: d, window: w, uploads } = loadMove('admin');
+    const target = row(d, 'Imagens');
+    const files = [new w.File(['a'], 'a.pdf'), new w.File(['b'], 'b.pdf')];
+    assert.equal(drag(w, 'dragover', target, { types: ['Files'] }).defaultPrevented, true);
+    assert.ok(target.classList.contains('drop-target'));
+    drag(w, 'dragleave', target, { types: ['Files'], related: d.body });
+    assert.equal(target.classList.contains('drop-target'), false);
+
+    const drop = drag(w, 'drop', target, { types: ['Files'], files });
+    assert.equal(drop.defaultPrevented, true);
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].method, 'POST');
+    assert.equal(uploads[0].url, 'index.php?dir=Imagens');
+    assert.equal(uploads[0].headers['X-Requested-With'], 'XMLHttpRequest');
+    assert.equal(uploads[0].body.get('action'), 'upload');
+    assert.ok(uploads[0].body.get('_csrf'));
+    assert.deepEqual(uploads[0].body.getAll('arquivos[]').map((f) => f.name), ['a.pdf', 'b.pdf']);
+    assert.match(d.querySelector('#toast-container').textContent, /Enviando 2 arquivos para Imagens/);
+
+    // arquivo sobre algo que não é pasta: o navegador segue o comportamento normal
+    assert.equal(drag(w, 'dragover', row(d, 'leia-me.txt'), { types: ['Files'] }).defaultPrevented, false);
+    drag(w, 'drop', row(d, 'leia-me.txt'), { types: ['Files'], files });
+    assert.equal(uploads.length, 1);
+});
+
+test('mover: usuário comum e lixeira não têm botão, modal, linha arrastável nem checkbox de pasta', () => {
+    const user = load('user', MOVE);
+    assert.equal(user.document.getElementById('moveModal'), null);
+    assert.equal(user.document.querySelector('[data-move], #btnMove'), null);
+    assert.equal(user.document.querySelector('[draggable=true]'), null);
+    assert.equal(user.document.querySelector('.item-check[data-dir-item]'), null, 'pasta sem caixa de seleção para quem só baixa');
+    for (const li of user.document.querySelectorAll('.file-item')) {
+        assert.equal(!!li.querySelector('.item-check'), !li.querySelector('.fa-folder, .fa-lock'), li.textContent.trim());
+    }
+    const trash = load('trash', MOVE);
+    assert.equal(trash.document.getElementById('moveModal'), null);
+    assert.equal(trash.document.querySelector('[draggable=true]'), null);
 });
