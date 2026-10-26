@@ -56,11 +56,13 @@
         f.action = window.location.href;      // mantém ?dir= e ?mode=
         var all = Object.assign({ action: action, _csrf: csrf }, fields || {});
         Object.keys(all).forEach(function (k) {
-            var i = document.createElement('input');
-            i.type = 'hidden';
-            i.name = k;
-            i.value = all[k];
-            f.appendChild(i);
+            [].concat(all[k]).forEach(function (v) {   // lista vira campo[] repetido
+                var i = document.createElement('input');
+                i.type = 'hidden';
+                i.name = Array.isArray(all[k]) ? k + '[]' : k;
+                i.value = v;
+                f.appendChild(i);
+            });
         });
         document.body.appendChild(f);
         f.submit();
@@ -68,7 +70,7 @@
 
     // ---- ZIP --------------------------------------------------------------
     function updateZipButton() {
-        var n = document.querySelectorAll('.item-check:checked').length;
+        var n = document.querySelectorAll('.item-check:checked:not([data-dir-item])').length;   // pasta não entra no ZIP
         var b = document.getElementById('btnZip');
         if (b) {
             b.style.display = n > 0 ? 'block' : 'none';
@@ -208,6 +210,9 @@
             xhr.send(new FormData(uploadForm));
         });
     }
+
+    // peças compartilhadas com move.js
+    window.IntranetUI = { openModal: openModal, closeModal: closeModal, showToast: showToast, postAction: postAction };
 
     // mensagem flash vinda do servidor (PRG)
     var flashText = document.body.getAttribute('data-flash-text');

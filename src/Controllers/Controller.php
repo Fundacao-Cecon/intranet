@@ -124,6 +124,23 @@ abstract class Controller
         return is_string($v) ? $v : '';
     }
 
+    /** Lista de nomes de item vinda de campo[] (cada um passa por safeItem; vazios e repetidos saem). */
+    protected function postNames(string $key): array
+    {
+        $v = $_POST[$key] ?? [];
+        if (!is_array($v)) {
+            return [];
+        }
+        $names = [];
+        foreach ($v as $x) {
+            $name = $this->ctx->storage->safeItem($x);
+            if ($name !== '') {
+                $names[$name] = $name;
+            }
+        }
+        return array_values($names);
+    }
+
     /** Lista de ids inteiros positivos vinda de campo[] (qualquer outra coisa é ignorada). */
     protected function postIds(string $key): array
     {
