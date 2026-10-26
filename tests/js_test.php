@@ -14,6 +14,8 @@ require __DIR__ . '/http_client.php';
 use App\Auth;
 use App\Database;
 use App\Logger;
+use App\Services\FolderAccess;
+use App\Services\Groups;
 
 $node = trim((string) @shell_exec(DIRECTORY_SEPARATOR === '\\' ? 'where node 2>NUL' : 'command -v node'));
 $node = $node ? strtok($node, "\r\n") : '';
@@ -33,7 +35,7 @@ const PW = 'Senha-Teste-123';
 
 // --- dados --------------------------------------------------------------------------------
 $storage = "$tmp/storage";
-foreach (["$storage/uploads/Norma Zero", "$storage/uploads/Imagens", "$storage/trash", "$tmp/sessions", "$tmp/html"] as $d) { mkdir($d, 0775, true); }
+foreach (["$storage/uploads/Norma Zero", "$storage/uploads/Imagens", "$storage/uploads/Restrita", "$storage/trash", "$tmp/sessions", "$tmp/html"] as $d) { mkdir($d, 0775, true); }
 file_put_contents("$storage/uploads/leia-me.txt", 'oi');
 file_put_contents("$storage/uploads/Norma Zero/protocolo.pdf", "%PDF-1.4\nx");
 file_put_contents("$storage/uploads/Imagens/foto.png", base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='));
@@ -43,6 +45,11 @@ $auth = new Auth($db, new Logger($db), $config['auth']);
 $auth->createUser('js_admin', PW, 'admin');
 $auth->createUser('js_user', PW, 'user');
 $auth->createUser('js_outro', PW, 'user');
+// "Restrita": liberada só para js_outro e para o grupo "Equipe" (js_user fica de fora e vê o cadeado).
+$ids = array_column($db->query("SELECT username, id FROM users")->fetchAll(), 'id', 'username');
+(new Groups($db))->create('Equipe');
+$gid = (int) $db->query("SELECT id FROM groups WHERE name = 'Equipe'")->fetchColumn();
+(new FolderAccess($db))->setRule('Restrita', [(int) $ids['js_outro']], [$gid]);
 
 // --- páginas -----------------------------------------------------------------------------------
 $base = startServer($storage);

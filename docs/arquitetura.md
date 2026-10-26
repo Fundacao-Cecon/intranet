@@ -45,6 +45,8 @@ Regra de dependência: Views não consultam banco nem disco; Controllers não mo
 | POST | `zip` | `FilesController::zip` | logado |
 | POST | `restore`, `purge`, `empty_trash` | `TrashController` | admin |
 | POST | `create_user`, `delete_user` | `UsersController` | admin |
+| POST | `set_folder_access` | `FilesController` | admin |
+| POST | `create_group`, `delete_group`, `set_group_members` | `GroupsController` | admin |
 
 \* O formulário público exige a senha atual e conta no limite de tentativas.
 

@@ -166,3 +166,17 @@
             .nav-bar { gap: 10px; }
             .search-box { flex: 1 1 100%; }
         }
+
+/* ---- permissões por pasta ---- */
+.locked-name { color: #888; cursor: not-allowed; }
+.locked-tag { margin-left: 6px; padding: 1px 6px; border-radius: 10px; background: rgba(127,127,127,.18); font-size: 11px; white-space: nowrap; }
+.btn-icon.has-rule { color: #e67e22; }
+.access-choice { display: block; margin: 8px 0; cursor: pointer; }
+.access-list { border: 1px solid rgba(127,127,127,.35); border-radius: 6px; margin: 8px 0; padding: 8px 12px; max-height: 160px; overflow: auto; }
+.access-list:disabled { opacity: .5; }
+.access-list label { display: block; padding: 2px 0; cursor: pointer; }
+.access-hint { margin: 10px 0 14px; opacity: .8; }
+.group-card { border: 1px solid rgba(127,127,127,.35); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+.group-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.group-head span { margin-left: auto; opacity: .7; font-size: 12px; }
+.group-members { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; max-height: 120px; overflow: auto; }

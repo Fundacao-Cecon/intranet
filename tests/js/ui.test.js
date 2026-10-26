@@ -286,3 +286,65 @@ test('login ?form=change: já abre no formulário de nova senha e o botão "Volt
     click(d.querySelectorAll('[data-toggle-forms]')[1]);
     assert.equal(d.getElementById('formLogin').style.display, 'block');
 });
+
+// ---------------------------------------------------------------- permissões por pasta
+test('acesso à pasta: o botão preenche o modal com a regra atual e o modo "herdar" trava as listas', () => {
+    const { document: d } = load('admin', APP);
+    const btn = d.querySelector('[data-folder-access="Restrita"]');
+    assert.ok(btn, 'botão de acesso da pasta Restrita');
+    assert.equal(btn.getAttribute('data-restricted'), '1');
+    click(btn);
+
+    const modal = d.querySelector('#folderAccessModal');
+    assert.ok(modal.classList.contains('active'));
+    assert.equal(d.querySelector('#folderAccessName').value, 'Restrita');
+    assert.equal(d.querySelector('#folderAccessTitle').textContent, 'Restrita');
+    assert.ok(d.querySelector('#accessRestrict').checked && !d.querySelector('#accessInherit').checked);
+    const users = [...d.querySelectorAll('[data-access-user]')];
+    const groups = [...d.querySelectorAll('[data-access-group]')];
+    assert.equal(users.filter((c) => c.checked).length, 1, 'um usuário marcado (js_outro)');
+    assert.equal(groups.filter((c) => c.checked).length, 1, 'um grupo marcado (Equipe)');
+    assert.ok(!d.querySelector('#accessTargets').disabled && !d.querySelector('#accessGroups').disabled);
+
+    const inherit = d.querySelector('#accessInherit');
+    inherit.checked = true;
+    change(inherit);
+    assert.ok(d.querySelector('#accessTargets').disabled && d.querySelector('#accessGroups').disabled, 'herdar deve travar as listas');
+});
+
+test('acesso à pasta: pasta sem regra abre em "herdar", sem ninguém marcado, e o título nunca vira HTML', () => {
+    const { document: d } = load('admin', APP);
+    const btn = d.querySelector('[data-folder-access="Imagens"]');
+    assert.equal(btn.getAttribute('data-restricted'), '0');
+    btn.setAttribute('data-folder-access', '<img src=x onerror=alert(1)>');     // nome hostil
+    click(btn);
+    assert.ok(d.querySelector('#accessInherit').checked);
+    assert.equal(d.querySelectorAll('[data-access-user]:checked, [data-access-group]:checked').length, 0);
+    assert.equal(d.querySelector('#folderAccessTitle').textContent, '<img src=x onerror=alert(1)>');
+    assert.equal(d.querySelector('#folderAccessTitle img'), null, 'o nome foi interpretado como HTML');
+    assert.equal(d.querySelector('#folderAccessForm [name=action]').value, 'set_folder_access');
+    assert.ok(d.querySelector('#folderAccessForm [name=_csrf]'), 'formulário sem CSRF');
+});
+
+test('usuário comum: pasta fechada aparece com cadeado, sem link nem botões de admin', () => {
+    const { document: d } = load('user', APP);
+    const row = [...d.querySelectorAll('.file-item')].find((li) => li.textContent.includes('Restrita'));
+    assert.ok(row, 'linha da pasta Restrita');
+    assert.ok(row.querySelector('.locked-name'), 'sem marca de pasta restrita');
+    assert.equal(row.querySelector('a'), null, 'pasta fechada não pode ter link');
+    assert.ok(row.querySelector('.fa-lock'));
+    assert.equal(d.querySelector('[data-folder-access]'), null);
+    assert.equal(d.getElementById('folderAccessModal'), null);
+});
+
+test('grupos: o modal lista os grupos com seus membros e cada formulário leva CSRF', () => {
+    const { document: d } = load('admin', APP);
+    const cards = [...d.querySelectorAll('#groupsModal .group-card')];
+    assert.equal(cards.length, 1);
+    assert.ok(cards[0].textContent.includes('Equipe'));
+    assert.ok(cards[0].querySelector('[name=_csrf]') && cards[0].querySelector('[name=id]'));
+    assert.ok(cards[0].querySelector('button[name=action][value=set_group_members]'));
+    assert.ok(cards[0].querySelector('[data-post-action=delete_group]'));
+    click(d.querySelector('[data-modal-open=groupsModal]'));
+    assert.ok(d.querySelector('#groupsModal').classList.contains('active'));
+});

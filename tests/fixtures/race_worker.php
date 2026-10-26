@@ -5,6 +5,7 @@
  *   php race_worker.php upload  <pasta> <nome> <id> <arquivo-largada> [legacy]
  *   php race_worker.php meta    <storage> <id> <iteracoes> <arquivo-largada>
  *   php race_worker.php delete  <storage> <id-quem-age> <id-alvo> <arquivo-largada>
+ *   php race_worker.php rules   <storage> <id> <iteracoes> <arquivo-largada>
  *   php race_worker.php login   <storage> <usuario> <senha> <ip> <arquivo-largada>
  *
  * Todos esperam o arquivo de largada existir para começarem juntos.
@@ -18,6 +19,8 @@ use App\Database;
 use App\Logger;
 use App\Services\FileMeta;
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
+use App\Services\Groups;
 
 function waitStart(string $flag): void
 {
@@ -25,6 +28,28 @@ function waitStart(string $flag): void
     while (!file_exists($flag)) {
         usleep(500);
         if (microtime(true) - $t > 30) { fwrite(STDERR, "timeout na largada\n"); exit(3); }
+    }
+}
+
+/**
+ * Repete a operação enquanto o SQLite responder "database is locked", por até 60 s. Com 8 processos
+ * martelando o mesmo arquivo num disco lento (runner do Windows) um deles pode ser preterido além do
+ * busy_timeout; isso é um limite do teste de estresse, não perda de dados. Devolve quantas vezes repetiu.
+ */
+function retryLocked(callable $fn, int &$retries): void
+{
+    $deadline = microtime(true) + 60;
+    while (true) {
+        try {
+            $fn();
+            return;
+        } catch (PDOException $e) {
+            if (strpos($e->getMessage(), 'database is locked') === false || microtime(true) > $deadline) {
+                throw $e;
+            }
+            $retries++;
+            usleep(20000);
+        }
     }
 }
 
@@ -54,10 +79,37 @@ if ($mode === 'meta') {
     $log = new Logger($db);
     waitStart($flag);
     try {
+        $retries = 0;
         for ($i = 0; $i < (int) $n; $i++) {
-            $meta->created("w$id/arquivo-$i.txt", "worker$id");
-            $log->log('CARGA', "w$id-$i", "worker$id");
-            $db->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, ?)')->execute(["10.0.0.$id", "u$id", time()]);
+            retryLocked(function () use ($meta, $id, $i) { $meta->created("w$id/arquivo-$i.txt", "worker$id"); }, $retries);
+            retryLocked(function () use ($log, $id, $i) { $log->log('CARGA', "w$id-$i", "worker$id"); }, $retries);
+            retryLocked(function () use ($db, $id) {
+                $db->prepare('INSERT INTO login_attempts (ip, username, attempted_at) VALUES (?, ?, ?)')->execute(["10.0.0.$id", "u$id", time()]);
+            }, $retries);
+        }
+        echo $retries;
+    } catch (Throwable $e) {
+        fwrite(STDERR, get_class($e) . ': ' . $e->getMessage() . "\n");
+        exit(1);
+    }
+    exit(0);
+}
+
+if ($mode === 'rules') {
+    [, , $storage, $id, $n, $flag] = $argv;
+    $db = Database::connect($storage . '/database.db');
+    $access = new FolderAccess($db);
+    $groups = new Groups($db);
+    waitStart($flag);
+    try {
+        for ($i = 0; $i < (int) $n; $i++) {
+            [$ok] = $groups->create("grupo-$id-$i");
+            if (!$ok) { throw new RuntimeException("grupo-$id-$i recusado"); }
+            $access->setRule("w$id/pasta-$i", [1], []);
+            $access->setRule("w$id/pasta-$i/sub", [], []);
+            if ($i % 5 === 4) {
+                $access->renamed("w$id/pasta-" . ($i - 4), "w$id/renomeada-$i");
+            }
         }
     } catch (Throwable $e) {
         fwrite(STDERR, get_class($e) . ': ' . $e->getMessage() . "\n");

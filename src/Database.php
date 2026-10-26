@@ -73,5 +73,31 @@ final class Database
             trash_path TEXT PRIMARY KEY,
             origin_path TEXT NOT NULL
         )");
+
+        // Permissões por pasta (ADR 0006). Uma pasta com linha em folder_rules só admite os
+        // usuários de folder_rule_users e os membros dos grupos de folder_rule_groups.
+        // path segue o mesmo formato de files_meta (".lixeira/..." na lixeira).
+        $pdo->exec("CREATE TABLE IF NOT EXISTS groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS group_members (
+            group_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            PRIMARY KEY (group_id, user_id)
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS folder_rules (
+            path TEXT PRIMARY KEY
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS folder_rule_users (
+            path TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
+            PRIMARY KEY (path, user_id)
+        )");
+        $pdo->exec("CREATE TABLE IF NOT EXISTS folder_rule_groups (
+            path TEXT NOT NULL,
+            group_id INTEGER NOT NULL,
+            PRIMARY KEY (path, group_id)
+        )");
     }
 }

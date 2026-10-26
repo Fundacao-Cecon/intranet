@@ -36,7 +36,7 @@ function fmt(vs) {
 const pages = [
     ['login',        'login (entrar)',            ['theme.js', 'login.js'], []],
     ['login_change', 'login (nova senha)',        ['theme.js', 'login.js'], []],
-    ['admin',        'painel do admin + modais',  ['theme.js', 'app.js'],   ['adminModal', 'listUsersModal', 'createUserModal', 'renameModal', 'changePasswordModal']],
+    ['admin',        'painel do admin + modais',  ['theme.js', 'app.js'],   ['adminModal', 'listUsersModal', 'createUserModal', 'renameModal', 'changePasswordModal', 'folderAccessModal', 'groupsModal']],
     ['user',         'painel do usuário comum',   ['theme.js', 'app.js'],   ['changePasswordModal']],
     ['trash',        'lixeira',                   ['theme.js', 'app.js'],   []],
     ['images',       'pasta com imagem (lightbox)', ['theme.js', 'app.js'], ['lightboxModal']],

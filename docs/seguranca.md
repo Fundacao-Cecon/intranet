@@ -36,6 +36,17 @@ Legenda: ✅ corrigido no código · ⚠️ ação manual necessária · ⏳ pen
 | 18 | Erro 500 em modo debug saía com status 200 | ✅ buffer de saída em Application::run |
 | 19 | Corrida no limite de tentativas de login (30 simultâneas gravam 10 falhas) | ⏳ Fase 2 da ADR-0005 (teste 	odo já escrito) |
 
+## Permissões por pasta
+
+| Garantia | Onde |
+|---|---|
+| Pasta restrita não abre, não baixa e não entra em ZIP para quem não está na regra (nem pela URL direta) | `Controller::location()` → `FolderAccess::allows` |
+| Regra de subpasta não reabre o que o pai fechou | `FolderAccess::allows` (interseção na cadeia) |
+| Apagar grupo/usuário nunca libera pasta (falha fechada) | `Groups::delete`, `Auth::deleteUser` |
+| Restrição acompanha rename, lixeira e restauração | `FolderAccess::renamed` |
+| Só admin define regras e grupos; POST exige CSRF | `FilesController::setFolderAccess`, `GroupsController` |
+| Cadeado expõe o **nome** da pasta (decisão de produto), não o conteúdo | [ADR 0006](decisoes/0006-permissoes-por-pasta.md) |
+
 ## Rotação de senhas (feita em 23/10/2026)
 
 - As **6 contas** do banco real (`adm`, `Vinicius`, `Fcecon`, `Gilberson`, `Comunicação`, `Icaro`) tiveram a senha redefinida para valores aleatórios de 16 caracteres, por autorização do responsável. Registrado no log como `SENHA` / `CLI`.

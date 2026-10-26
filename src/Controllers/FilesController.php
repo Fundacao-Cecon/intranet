@@ -24,6 +24,13 @@ final class FilesController extends Controller
         list($dirs, $files) = $s->listDir($absDir);
         $names = array_merge($dirs, $files);
 
+        $isAdmin = $auth->isAdmin();
+        // Pastas fechadas para este usuário aparecem com cadeado (ADR 0006); admin vê as regras.
+        $locked = $isTrash ? [] : $this->ctx->access->lockedMap($auth->user(), $sub, $dirs);
+        $rules = $isAdmin && !$isTrash && $dirs
+            ? $this->ctx->access->rules(array_map(function ($d) use ($sub) { return trim($sub . '/' . $d, '/'); }, $dirs))
+            : [];
+
         // Uma única consulta para todos os metadados da página.
         $metaPaths = [];
         foreach ($names as $n) {
@@ -37,6 +44,8 @@ final class FilesController extends Controller
             $isDir = is_dir($full);
             $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
             $m = $meta[$metaPaths[$name]] ?? null;
+            $isLocked = $isDir && !empty($locked[$name]);
+            $rule = $isDir ? ($rules[$metaPaths[$name]] ?? null) : null;
 
             $fileParams = $base + ['action' => 'download', 'file' => $name];
             $rows[] = [
@@ -44,12 +53,14 @@ final class FilesController extends Controller
                 'isDir'     => $isDir,
                 'ext'       => $ext,
                 'size'      => $isDir ? '-' : formatarTamanho(filesize($full)),
-                'date'      => date('d/m/Y H:i', filemtime($full)),
-                'createdBy' => $m['created_by'] ?? '-',
-                'updatedBy' => $m['updated_by'] ?? '-',
+                'date'      => $isLocked ? '-' : date('d/m/Y H:i', filemtime($full)),
+                'createdBy' => $isLocked ? '-' : ($m['created_by'] ?? '-'),
+                'updatedBy' => $isLocked ? '-' : ($m['updated_by'] ?? '-'),
                 'isImage'   => !$isDir && in_array($ext, $cfg['image_extensions'], true),
                 'canInline' => !$isDir && isset($cfg['inline_mime'][$ext]),
-                'openUrl'   => $isDir ? url(['dir' => trim($sub . '/' . $name, '/')]) : null,
+                'locked'    => $isLocked,
+                'rule'      => $rule,
+                'openUrl'   => $isDir && !$isLocked ? url(['dir' => trim($sub . '/' . $name, '/')]) : null,
                 'downloadUrl' => $isDir ? null : url($fileParams),
                 'inlineUrl'   => $isDir ? null : url($fileParams + ['inline' => 1]),
             ];
@@ -64,7 +75,6 @@ final class FilesController extends Controller
             }
         }
 
-        $isAdmin = $auth->isAdmin();
         view('files/index', [
             'flash'       => $this->takeFlash(),
             'isTrash'     => $isTrash,
@@ -76,6 +86,7 @@ final class FilesController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'logs'        => $isAdmin ? $this->ctx->logger->recent(50) : [],
             'users'       => $isAdmin ? $auth->listUsers() : [],
+            'groups'      => $isAdmin ? $this->ctx->groups->all() : [],
         ]);
     }
 
@@ -124,6 +135,7 @@ final class FilesController extends Controller
                     $s->metaPath($area, $sub, $new),
                     (string) $this->ctx->auth->username()
                 );
+                $this->ctx->access->renamed($s->metaPath($area, $sub, $ant), $s->metaPath($area, $sub, $new));
                 $this->ctx->logger->log('RENAME', "$ant -> $new");
                 $this->flash('Renomeado!', 'success');
                 $this->redirectBack();
@@ -151,11 +163,40 @@ final class FilesController extends Controller
                 $trashPath = $s->metaPath(FileStorage::AREA_TRASH, '', $dest);
                 $this->ctx->meta->renamed($originPath, $trashPath, (string) $this->ctx->auth->username());
                 $this->ctx->meta->rememberOrigin($trashPath, $originPath);
+                $this->ctx->access->renamed($originPath, $trashPath); // a restrição vai junto e volta ao restaurar
                 $this->ctx->logger->log('LIXEIRA', 'Movido: ' . $item);
                 $this->flash('Movido p/ lixeira.', 'success');
                 $this->redirectBack();
             }
             $this->flash('Erro ao mover.', 'error');
+        }
+        $this->redirectBack();
+    }
+
+    /** Define (ou remove) a regra de acesso de uma pasta da pasta atual. */
+    public function setFolderAccess(): void
+    {
+        $this->requireAdmin();
+        $s = $this->ctx->storage;
+        list($area, $absDir, $sub) = $this->location();
+
+        $folder = $s->safeItem($this->post('folder'));
+        if ($area !== FileStorage::AREA_FILES || $folder === '' || $s->isHidden($folder) || !is_dir($absDir . $folder)) {
+            $this->flash('Pasta não encontrada.', 'error');
+            $this->redirectBack();
+        }
+
+        $path = $s->metaPath($area, $sub, $folder);
+        if ($this->post('mode') === 'restrict') {
+            $users = $this->postIds('users');
+            $groups = $this->postIds('groups');
+            $this->ctx->access->setRule($path, $users, $groups);
+            $this->ctx->logger->log('ACESSO', sprintf('%s: restrita (%d usuários, %d grupos)', $path, count($users), count($groups)));
+            $this->flash('Acesso restrito salvo.', 'success');
+        } else {
+            $this->ctx->access->clearRule($path);
+            $this->ctx->logger->log('ACESSO', $path . ': herda da pasta de cima');
+            $this->flash('A pasta voltou a herdar o acesso.', 'success');
         }
         $this->redirectBack();
     }
