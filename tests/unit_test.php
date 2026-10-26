@@ -80,6 +80,17 @@ test('resolve: link simbólico que aponta para fora da raiz é recusado', functi
     @unlink($link);
 });
 
+test('resolve: a pasta volta com a caixa real do disco (sistemas que ignoram a caixa não contornam regras por caixa, ponto final ou nome curto)', function () use ($fs, $tmp) {
+    mkdir("$tmp/uploads/CaixaReal/Fundo", 0775, true);
+    foreach (['caixareal', 'CAIXAREAL', 'CaixaReal.', 'caixareal/FUNDO'] as $typed) {
+        if (!is_dir("$tmp/uploads/$typed")) { continue; }   // sistema que diferencia a caixa: o nome errado nem resolve
+        [, $clean] = $fs->resolve('files', $typed);
+        $expect = stripos($typed, '/') !== false ? 'CaixaReal/Fundo' : 'CaixaReal';
+        check($clean === $expect, json_encode($typed) . ' => ' . json_encode($clean));
+    }
+    check($fs->resolve('files', 'CaixaReal/Fundo')[1] === 'CaixaReal/Fundo', 'caixa certa continua igual');
+});
+
 test('resolve: lixeira e arquivos são raízes independentes', function () use ($fs) {
     check($fs->resolve('trash', 'Docs')[0] === $fs->root('trash'), 'Docs não existe na lixeira');
     check($fs->root('files') !== $fs->root('trash'), 'raízes iguais');

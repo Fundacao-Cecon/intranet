@@ -35,8 +35,12 @@
         return '';
     }
 
+    /** Marcados E à vista: a busca da lista esconde linhas, e o que não se vê não deve ser movido. */
     function checkedInfos() {
-        return Array.prototype.map.call(list.querySelectorAll('.item-check:checked'), function (cb) {
+        return Array.prototype.filter.call(list.querySelectorAll('.item-check:checked'), function (cb) {
+            var row = cb.closest('li');
+            return !row || row.style.display !== 'none';
+        }).map(function (cb) {
             return { name: cb.value, isDir: cb.hasAttribute('data-dir-item') };
         });
     }
@@ -48,13 +52,15 @@
     // ---- botão "Mover selecionados" ----------------------------------------------------
     function updateMoveButton() {
         if (!btnMove) return;
-        var n = list.querySelectorAll('.item-check:checked').length;
+        var n = checkedInfos().length;
         btnMove.style.display = n > 0 ? 'block' : 'none';
         btnMove.textContent = 'Mover ' + n + (n === 1 ? ' item' : ' itens');
     }
     document.querySelectorAll('.item-check, #selectAll').forEach(function (cb) {
         cb.addEventListener('change', updateMoveButton);
     });
+    var search = document.getElementById('searchInput');
+    if (search) search.addEventListener('input', updateMoveButton);   // filtrar muda o que conta como selecionado
 
     // ---- modal --------------------------------------------------------------------------
     var moving = [];

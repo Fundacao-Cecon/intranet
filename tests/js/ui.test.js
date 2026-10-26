@@ -627,6 +627,28 @@ test('mover: o botão só aparece com seleção, conta pastas e arquivos e abre 
     assert.equal(d.querySelector('#moveDest').value, '');
 });
 
+test('mover: a busca esconde linhas — "todos" e "Mover selecionados" só valem para o que se vê', () => {
+    const { document: d } = loadMove('admin');
+    const search = d.querySelector('#searchInput');
+    search.value = 'leia';
+    input(search);
+    const hidden = [...d.querySelectorAll('#fileList li.file-item')].filter((li) => li.style.display === 'none');
+    assert.ok(hidden.length >= 1, 'a busca deveria esconder linhas');
+
+    const all = d.querySelector('#selectAll');
+    all.checked = true; change(all);
+    assert.deepEqual([...d.querySelectorAll('.item-check:checked')].map((c) => c.value), ['leia-me.txt'], 'só a linha visível é marcada');
+    assert.equal(d.querySelector('#btnMove').textContent, 'Mover 1 item');
+
+    // item marcado antes da busca e agora escondido não entra no lote
+    const sumida = d.querySelector('.item-check[value="Imagens"]');
+    sumida.checked = true;
+    input(search);
+    click(d.querySelector('#btnMove'));
+    assert.deepEqual([...d.querySelectorAll('#moveItems input')].map((i) => i.value), ['leia-me.txt']);
+    assert.equal(d.querySelector('#btnMove').textContent, 'Mover 1 item');
+});
+
 test('mover: o botão da linha leva só aquele item; folha de destino escolhida habilita o envio', () => {
     const { document: d } = loadMove('admin');
     click(d.querySelector('[data-move="leia-me.txt"]'));
