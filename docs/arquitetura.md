@@ -38,13 +38,16 @@ Regra de dependência: Views não consultam banco nem disco; Controllers não mo
 |---|---|---|---|
 | GET | *(vazio)* | `FilesController::index` (ou tela de login) | logado |
 | GET | `download` | `FilesController::download` | logado (lixeira: admin) |
+| GET | `tree` | `FilesController::tree` | logado (JSON com as subpastas diretas de `dir`) |
 | GET | `logout` | `AuthController::logout` | logado |
 | POST | `login` | `AuthController::login` | público |
 | POST | `change_password` | `AuthController::changePassword` | público* / logado |
-| POST | `mkdir`, `rename`, `upload`, `trash` | `FilesController` | admin |
+| POST | `mkdir`, `rename`, `upload`, `trash`, `move` | `FilesController` | admin |
 | POST | `zip` | `FilesController::zip` | logado |
 | POST | `restore`, `purge`, `empty_trash` | `TrashController` | admin |
 | POST | `create_user`, `delete_user` | `UsersController` | admin |
+| POST | `set_folder_access` | `FilesController` | admin |
+| POST | `create_group`, `delete_group`, `set_group_members` | `GroupsController` | admin |
 
 \* O formulário público exige a senha atual e conta no limite de tentativas.
 

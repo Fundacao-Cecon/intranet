@@ -30,7 +30,30 @@ abstract class Controller
         $area = $this->area();
         $sub = isset($_GET['dir']) && is_string($_GET['dir']) ? $_GET['dir'] : '';
         list($abs, $clean) = $this->ctx->storage->resolve($area, $sub);
+        if ($area === FileStorage::AREA_FILES && $clean !== '' && !$this->ctx->access->allows($this->ctx->auth->user(), $clean)) {
+            $this->denyAccess();
+        }
         return [$area, $abs, $clean];
+    }
+
+    /**
+     * Pasta fechada para o usuário (ADR 0006). Navegar volta para a raiz com aviso; download,
+     * ZIP e ações respondem 403. A raiz nunca é fechada, então o redirect não entra em laço.
+     */
+    private function denyAccess(): void
+    {
+        $msg = 'Acesso negado a esta pasta.';
+        if ($this->isAjax()) {
+            $this->json(['status' => 'error', 'msg' => $msg], 403);
+        }
+        $navigating = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET' && ($_GET['action'] ?? '') === '';
+        if ($navigating) {
+            $this->flash($msg, 'error');
+            $this->redirect();
+        }
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        exit($msg);
     }
 
     /** Parâmetros de URL que preservam o contexto (dir + mode). */
@@ -99,5 +122,38 @@ abstract class Controller
     {
         $v = $_POST[$key] ?? '';
         return is_string($v) ? $v : '';
+    }
+
+    /** Lista de nomes de item vinda de campo[] (cada um passa por safeItem; vazios e repetidos saem). */
+    protected function postNames(string $key): array
+    {
+        $v = $_POST[$key] ?? [];
+        if (!is_array($v)) {
+            return [];
+        }
+        $names = [];
+        foreach ($v as $x) {
+            $name = $this->ctx->storage->safeItem($x);
+            if ($name !== '') {
+                $names[$name] = $name;
+            }
+        }
+        return array_values($names);
+    }
+
+    /** Lista de ids inteiros positivos vinda de campo[] (qualquer outra coisa é ignorada). */
+    protected function postIds(string $key): array
+    {
+        $v = $_POST[$key] ?? [];
+        if (!is_array($v)) {
+            return [];
+        }
+        $ids = [];
+        foreach ($v as $x) {
+            if ((is_string($x) || is_int($x)) && ctype_digit((string) $x) && (int) $x > 0) {
+                $ids[(int) $x] = (int) $x;
+            }
+        }
+        return array_values($ids);
     }
 }

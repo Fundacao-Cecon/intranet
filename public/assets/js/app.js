@@ -56,11 +56,13 @@
         f.action = window.location.href;      // mantém ?dir= e ?mode=
         var all = Object.assign({ action: action, _csrf: csrf }, fields || {});
         Object.keys(all).forEach(function (k) {
-            var i = document.createElement('input');
-            i.type = 'hidden';
-            i.name = k;
-            i.value = all[k];
-            f.appendChild(i);
+            [].concat(all[k]).forEach(function (v) {   // lista vira campo[] repetido
+                var i = document.createElement('input');
+                i.type = 'hidden';
+                i.name = Array.isArray(all[k]) ? k + '[]' : k;
+                i.value = v;
+                f.appendChild(i);
+            });
         });
         document.body.appendChild(f);
         f.submit();
@@ -68,13 +70,43 @@
 
     // ---- ZIP --------------------------------------------------------------
     function updateZipButton() {
-        var n = document.querySelectorAll('.item-check:checked').length;
+        var n = document.querySelectorAll('.item-check:checked:not([data-dir-item])').length;   // pasta não entra no ZIP
         var b = document.getElementById('btnZip');
         if (b) {
             b.style.display = n > 0 ? 'block' : 'none';
             b.textContent = 'Baixar ' + n + ' (ZIP)';
         }
     }
+
+    // ---- acesso à pasta (modal do admin) -----------------------------------
+    function syncAccessMode() {
+        var restrict = document.getElementById('accessRestrict');
+        var on = !!(restrict && restrict.checked);
+        ['accessTargets', 'accessGroups'].forEach(function (id) {
+            var fs = document.getElementById(id);
+            if (fs) fs.disabled = !on;
+        });
+    }
+    function openFolderAccess(btn) {
+        var name = btn.getAttribute('data-folder-access');
+        var rule = {};
+        try { rule = JSON.parse(btn.getAttribute('data-access') || '{}') || {}; } catch (err) { rule = {}; }
+        var users = (rule.users || []).map(String);
+        var groups = (rule.groups || []).map(String);
+        var restricted = btn.getAttribute('data-restricted') === '1';
+
+        document.getElementById('folderAccessName').value = name;
+        document.getElementById('folderAccessTitle').textContent = name;   // textContent: nome nunca vira HTML
+        document.getElementById('accessInherit').checked = !restricted;
+        document.getElementById('accessRestrict').checked = restricted;
+        document.querySelectorAll('[data-access-user]').forEach(function (cb) { cb.checked = users.indexOf(cb.value) > -1; });
+        document.querySelectorAll('[data-access-group]').forEach(function (cb) { cb.checked = groups.indexOf(cb.value) > -1; });
+        syncAccessMode();
+        openModal('folderAccessModal');
+    }
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) {
+        r.addEventListener('change', syncAccessMode);
+    });
 
     // ---- cliques delegados -----------------------------------------------
     document.addEventListener('click', function (e) {
@@ -84,7 +116,7 @@
         if (t.classList && t.classList.contains('modal-overlay')) { closeModal(t.id); return; }
         if (t.hasAttribute && t.hasAttribute('data-lightbox-backdrop')) { closeModal('lightboxModal'); return; }
 
-        var el = t.closest('[data-modal-close],[data-modal-open],[data-post-action],[data-rename],[data-lightbox]');
+        var el = t.closest('[data-modal-close],[data-modal-open],[data-post-action],[data-rename],[data-folder-access],[data-lightbox]');
         if (!el) return;
 
         if (el.hasAttribute('data-modal-close')) closeModal(el.getAttribute('data-modal-close'));
@@ -105,6 +137,8 @@
             document.getElementById('newNameInput').value = name;
             openModal('renameModal');
         }
+
+        if (el.hasAttribute('data-folder-access')) openFolderAccess(el);
 
         if (el.hasAttribute('data-lightbox')) {
             document.getElementById('lightboxImg').src = el.getAttribute('data-lightbox');
@@ -176,6 +210,9 @@
             xhr.send(new FormData(uploadForm));
         });
     }
+
+    // peças compartilhadas com move.js
+    window.IntranetUI = { openModal: openModal, closeModal: closeModal, showToast: showToast, postAction: postAction };
 
     // mensagem flash vinda do servidor (PRG)
     var flashText = document.body.getAttribute('data-flash-text');

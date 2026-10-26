@@ -13,6 +13,8 @@ use App\Database;
 use App\Logger;
 use App\Services\FileMeta;
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
+use App\Services\Groups;
 
 ob_start(); // evita "headers already sent" ao usar sessões na CLI
 
@@ -135,6 +137,33 @@ test('metaPath: lixeira ganha prefixo .lixeira/', function () use ($fs) {
     check($fs->metaPath('files', 'Docs', '') === 'Docs', 'só a pasta');
 });
 
+test('reserveKeepingName: nome exato quando livre (sem limpar), reserva o arquivo e cai em (1) quando ocupado', function () use ($fs, $tmp) {
+    $dir = "$tmp/uploads/Reserva/";
+    mkdir($dir, 0775, true);
+    check($fs->reserveKeepingName($dir, "d'ap&mp.txt") === "d'ap&mp.txt" && is_file($dir . "d'ap&mp.txt") && filesize($dir . "d'ap&mp.txt") === 0, 'nome exato e reservado');
+    check($fs->reserveKeepingName($dir, "d'ap&mp.txt") === "d'ap&mp (1).txt", 'ocupado: sufixo sem limpar o nome');
+    check($fs->reserveKeepingName($dir, 'a.txt') === 'a.txt' && $fs->reserveKeepingName($dir, 'a.txt') === 'a (1).txt', 'sequência');
+});
+
+test('isSameOrInside: o próprio caminho e os de dentro; prefixo parecido não conta; raiz vazia', function () use ($fs) {
+    check($fs->isSameOrInside('a', 'a') && $fs->isSameOrInside('a/b', 'a') && $fs->isSameOrInside('a/b/c', 'a/b'), 'dentro');
+    check(!$fs->isSameOrInside('ab', 'a') && !$fs->isSameOrInside('a', 'a/b') && !$fs->isSameOrInside('b/a', 'a'), 'fora');
+    check(!$fs->isSameOrInside('', 'a') && $fs->isSameOrInside('', ''), 'raiz');
+    check(DIRECTORY_SEPARATOR === '\\' ? $fs->isSameOrInside('A/B', 'a') : !$fs->isSameOrInside('A/B', 'a'), 'caixa: só o Windows ignora');
+});
+
+test('hasSubdirs: só arquivos, ocultos, subpasta e pasta inexistente', function () use ($fs, $tmp) {
+    $base = "$tmp/uploads/Arvore";
+    mkdir("$base/so-arquivos", 0775, true);
+    file_put_contents("$base/so-arquivos/a.txt", 'x');
+    mkdir("$base/so-oculta/.lixeira", 0775, true);     // nome oculto não conta como subpasta
+    mkdir("$base/com-sub/filha", 0775, true);
+    check($fs->hasSubdirs("$base/so-arquivos/") === false, 'só arquivos');
+    check($fs->hasSubdirs("$base/so-oculta/") === false, 'só pasta oculta');
+    check($fs->hasSubdirs("$base/com-sub/") === true, 'com subpasta');
+    check($fs->hasSubdirs("$base/nao-existe/") === false, 'inexistente');
+});
+
 test('listDir: oculta itens ocultos, pastas e arquivos separados, ordem natural', function () use ($fs, $tmp) {
     $d = "$tmp/uploads/ord";
     mkdir("$d/b-pasta", 0775, true);
@@ -165,7 +194,7 @@ $meta = new FileMeta($db);
 test('Database::connect é idempotente e cria todas as tabelas', function () use ($tmp, $db) {
     Database::connect("$tmp/test.db"); // segunda vez não pode falhar
     $tables = $db->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);
-    foreach (['users', 'logs', 'files_meta', 'login_attempts', 'trash_origin'] as $t) {
+    foreach (['users', 'logs', 'files_meta', 'login_attempts', 'trash_origin', 'groups', 'group_members', 'folder_rules', 'folder_rule_users', 'folder_rule_groups'] as $t) {
         check(in_array($t, $tables, true), "tabela $t ausente");
     }
 });
@@ -225,6 +254,153 @@ test('FileMeta: origem da lixeira — lembrar, ler, esquecer, limpar tudo', func
     $meta->forgetAllOrigins();
     check($meta->origin('.lixeira/b.txt') === null, 'forgetAllOrigins');
 });
+
+// =====================================================================================
+suite('FolderAccess e Groups (permissões por pasta)');
+// =====================================================================================
+
+$acc = new FolderAccess($db);
+$grp = new Groups($db);
+$mkUser = function (string $name, string $role = 'user') use ($db): array {
+    $db->prepare("INSERT INTO users (username, password, role) VALUES (?, 'x', ?)")->execute([$name, $role]);
+    return ['id' => (int) $db->lastInsertId(), 'role' => $role];
+};
+$ana = $mkUser('fa_ana');
+$bia = $mkUser('fa_bia');
+$cid = $mkUser('fa_cid');
+$adm = ['id' => 999999, 'role' => 'admin'];   // admin só na memória: um admin a mais no banco mudaria os testes de Auth
+
+test('chain: ancestrais incluindo o próprio; barras sobrando e vazio', function () {
+    check(FolderAccess::chain('a/b/c') === ['a', 'a/b', 'a/b/c'], 'a/b/c');
+    check(FolderAccess::chain('/a//b/') === ['a', 'a/b'], 'barras');
+    check(FolderAccess::chain('') === [], 'vazio');
+});
+
+test('sem regra: todo usuário logado entra; sem usuário (null) nunca', function () use ($acc, $ana) {
+    check($acc->allows($ana, 'qualquer/coisa') && $acc->allows($ana, ''), 'sem regra deveria liberar');
+    check(!$acc->allows(null, 'qualquer') && !$acc->allows(null, ''), 'anônimo entrou');
+});
+
+test('usuário direto, grupo e "só admins"; admin ignora regra; a raiz nunca fecha', function () use ($acc, $grp, $db, $ana, $bia, $cid, $adm) {
+    $grp->create('Financeiro');
+    $g = (int) $db->query("SELECT id FROM groups WHERE name = 'Financeiro'")->fetchColumn();
+    $grp->setMembers($g, [$bia['id']]);
+    $acc->setRule('Fin', [$ana['id']], [$g]);
+    check($acc->allows($ana, 'Fin') && $acc->allows($bia, 'Fin'), 'usuário listado e membro do grupo deveriam entrar');
+    check(!$acc->allows($cid, 'Fin'), 'intruso entrou');
+    check($acc->allows($adm, 'Fin'), 'admin barrado');
+    check($acc->allows($cid, ''), 'raiz fechada');
+    $acc->setRule('SoAdmin', [], []);
+    check(!$acc->allows($ana, 'SoAdmin') && $acc->allows($adm, 'SoAdmin'), 'regra vazia = só admins');
+});
+
+test('cadeia: precisa passar por TODAS as regras; filha só estreita', function () use ($acc, $ana, $bia) {
+    $acc->setRule('P', [$ana['id'], $bia['id']], []);
+    $acc->setRule('P/Q', [$ana['id']], []);
+    $acc->setRule('Z/Y', [$ana['id']], []);         // pai Z sem regra: só Y é fechada
+    check($acc->allows($ana, 'P/Q/fundo') && $acc->allows($ana, 'P/Q'), 'ana deveria entrar');
+    check($acc->allows($bia, 'P') && !$acc->allows($bia, 'P/Q') && !$acc->allows($bia, 'P/Q/fundo'), 'bia: P sim, P/Q não');
+    check($acc->allows($bia, 'Z') && !$acc->allows($bia, 'Z/Y') && $acc->allows($ana, 'Z/Y'), 'regra só na filha');
+    $acc->setRule('W', [$ana['id']], []);
+    $acc->setRule('W/V', [$bia['id']], []);         // filha lista bia, mas o pai W não
+    check(!$acc->allows($bia, 'W/V'), 'filha reabriu o que o pai fechou');
+    check(!$acc->allows($ana, 'W/V'), 'ana não está na filha');
+});
+
+test('lockedMap: só os filhos fechados; admin e lista vazia; muitos nomes (blocos)', function () use ($acc, $ana, $bia, $adm) {
+    $m = $acc->lockedMap($bia, 'P', ['Q', 'Outra']);
+    check($m === ['Q' => true, 'Outra' => false], json_encode($m));
+    check($acc->lockedMap($ana, 'P', ['Q']) === ['Q' => false], 'ana vê Q aberta');
+    check($acc->lockedMap($adm, 'P', ['Q']) === ['Q' => false], 'admin não vê cadeado');
+    check($acc->lockedMap($bia, 'P', []) === [], 'vazio');
+    check($acc->lockedMap(null, 'P', ['Q']) === ['Q' => false], 'sem usuário: nada a marcar (login é outra camada)');
+    $names = [];
+    for ($i = 0; $i < 900; $i++) { $names[] = "d$i"; }
+    $acc->setRule('Mil/d899', [$ana['id']], []);
+    $m = $acc->lockedMap($bia, 'Mil', $names);
+    check(count($m) === 900 && $m['d899'] === true && $m['d0'] === false, 'blocos');
+});
+
+test('rule/rules: lê a regra própria (sem herança); null quando não há; em lote', function () use ($acc, $db, $ana) {
+    $g = (int) $db->query("SELECT id FROM groups WHERE name = 'Financeiro'")->fetchColumn();
+    check($acc->rule('Fin') === ['users' => [$ana['id']], 'groups' => [$g]], json_encode($acc->rule('Fin')));
+    check($acc->rule('Fin/filha') === null && $acc->rule('nada') === null, 'herança não é regra própria');
+    check($acc->rule('SoAdmin') === ['users' => [], 'groups' => []], 'regra vazia');
+    $r = $acc->rules(['Fin', 'P', 'P/Q', 'nada']);
+    check(array_keys($r) === ['Fin', 'P', 'P/Q'] || (isset($r['Fin'], $r['P'], $r['P/Q']) && count($r) === 3), json_encode(array_keys($r)));
+    check($acc->rules([]) === [], 'lote vazio');
+});
+
+test('setRule ignora ids inexistentes e repetidos; substitui a regra anterior; clearRule só limpa a própria', function () use ($acc, $ana, $bia) {
+    $acc->setRule('R', [$ana['id'], $ana['id'], 99999], [99999]);
+    check($acc->rule('R') === ['users' => [$ana['id']], 'groups' => []], json_encode($acc->rule('R')));
+    $acc->setRule('R', [$bia['id']], []);
+    check($acc->rule('R')['users'] === [$bia['id']], 'não substituiu');
+    $acc->setRule('R/S', [$ana['id']], []);
+    $acc->clearRule('R');
+    check($acc->rule('R') === null && $acc->rule('R/S') !== null, 'clearRule mexeu na filha ou não limpou');
+    $acc->clearRule('R/S');
+});
+
+test('renamed: leva regra e subpastas; irmãs com prefixo parecido e curingas LIKE ficam intactas', function () use ($acc, $ana, $bia) {
+    foreach (['Doc', 'Doc/sub', 'Docs', 'a_b', 'axb', '100%', '100x'] as $p) { $acc->setRule($p, [$ana['id']], []); }
+    $acc->renamed('Doc', 'Novo');
+    check($acc->rule('Novo') !== null && $acc->rule('Novo/sub') !== null && $acc->rule('Doc') === null && $acc->rule('Doc/sub') === null, 'Doc não acompanhou');
+    check($acc->rule('Docs') !== null, 'irmã Docs foi afetada');
+    $acc->renamed('a_b', 'c');
+    $acc->renamed('100%', 'cem');
+    check($acc->rule('axb') !== null && $acc->rule('100x') !== null && $acc->rule('c') !== null && $acc->rule('cem') !== null, 'curinga LIKE atingiu outra pasta');
+    check(!$acc->allows($bia, 'Novo/sub/fundo'), 'regra renomeada deixou de valer');
+});
+
+test('renamed: sobra no destino não se agarra ao item novo; mesmo caminho é no-op', function () use ($acc, $ana, $bia) {
+    $acc->setRule('Velho', [$bia['id']], []);
+    $acc->setRule('Alvo', [$ana['id']], []);
+    $acc->setRule('Alvo/x', [$ana['id']], []);
+    $acc->renamed('Velho', 'Alvo');
+    check($acc->rule('Alvo')['users'] === [$bia['id']] && $acc->rule('Alvo/x') === null, 'sobra do destino: ' . json_encode($acc->rule('Alvo')));
+    $acc->renamed('Alvo', 'Alvo');
+    check($acc->rule('Alvo') !== null, 'no-op apagou');
+});
+
+test('removed: apaga a regra e as das subpastas, não a do vizinho de prefixo', function () use ($acc, $ana) {
+    foreach (['K', 'K/l', 'KK', 'KK/m'] as $p) { $acc->setRule($p, [$ana['id']], []); }
+    $acc->removed('K');
+    check($acc->rule('K') === null && $acc->rule('K/l') === null && $acc->rule('KK') !== null && $acc->rule('KK/m') !== null, 'removed');
+});
+
+test('Groups: nomes válidos e inválidos; duplicado sem diferenciar maiúsculas; espaços normalizados', function () use ($grp) {
+    check($grp->create('  Recursos   Humanos ')[0] === true, 'nome com espaços');
+    foreach (['', 'x', '-ab', '<b>', str_repeat('a', 51), 'recursos humanos', 'RECURSOS HUMANOS'] as $bad) {
+        check($grp->create($bad)[0] === false, json_encode($bad) . ' foi aceito');
+    }
+    check($grp->create('Ç-ão_1.2')[0] === true, 'acentos e símbolos permitidos');
+});
+
+test('Groups: setMembers troca membros, ignora ids que não são usuários; grupo inexistente', function () use ($grp, $db, $ana, $bia) {
+    $g = (int) $db->query("SELECT id FROM groups WHERE name = 'Recursos Humanos'")->fetchColumn();
+    check($grp->setMembers($g, [$ana['id'], $ana['id'], 99999])[0] === true, 'ok');
+    $all = array_column($grp->all(), 'members', 'name');
+    check($all['Recursos Humanos'] === [$ana['id']], json_encode($all));
+    $grp->setMembers($g, [$bia['id']]);
+    check(array_column($grp->all(), 'members', 'name')['Recursos Humanos'] === [$bia['id']], 'não substituiu');
+    check($grp->setMembers(99999, [$ana['id']])[0] === false && $grp->delete(99999)[0] === false, 'grupo inexistente');
+});
+
+test('Groups: excluir grupo limpa membros e regras; all() vem ordenado por nome', function () use ($grp, $acc, $db, $ana) {
+    $g = (int) $db->query("SELECT id FROM groups WHERE name = 'Recursos Humanos'")->fetchColumn();
+    $acc->setRule('Rh', [], [$g]);
+    check($grp->delete($g)[0] === true, 'delete');
+    check(!$db->query("SELECT 1 FROM group_members WHERE group_id = $g")->fetchColumn() && !$db->query("SELECT 1 FROM folder_rule_groups WHERE group_id = $g")->fetchColumn(), 'sobrou ligação');
+    check($acc->rule('Rh') === ['users' => [], 'groups' => []], 'a regra vira "só admins", nunca "livre"');
+    $names = array_column($grp->all(), 'name');
+    $sorted = $names;
+    usort($sorted, 'strcasecmp');
+    check($names === $sorted, json_encode($names));
+});
+
+$db->exec("DELETE FROM users WHERE username LIKE 'fa\_%' ESCAPE '\'");   // não deixa usuários de teste para as suítes de Auth
+$db->exec('DELETE FROM group_members');
 
 // =====================================================================================
 suite('Logger');

@@ -3,6 +3,8 @@ namespace App;
 
 use App\Services\FileMeta;
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
+use App\Services\Groups;
 use PDO;
 
 /** Agrupa os serviços compartilhados que os controllers recebem. */
@@ -20,9 +22,15 @@ final class Context
     public $storage;
     /** @var FileMeta */
     public $meta;
+    /** @var FolderAccess */
+    public $access;
+    /** @var Groups */
+    public $groups;
 
-    public function __construct(array $config, PDO $db, Auth $auth, Logger $logger, FileStorage $storage, FileMeta $meta)
+    public function __construct(array $config, PDO $db, Auth $auth, Logger $logger, FileStorage $storage, FileMeta $meta, FolderAccess $access, Groups $groups)
     {
+        $this->access = $access;
+        $this->groups = $groups;
         $this->config = $config;
         $this->db = $db;
         $this->auth = $auth;

@@ -43,6 +43,7 @@ final class TrashController extends Controller
                 $s->metaPath(FileStorage::AREA_FILES, $destSub, $nomeFinal),
                 (string) $this->ctx->auth->username()
             );
+            $this->ctx->access->renamed($trashPath, $s->metaPath(FileStorage::AREA_FILES, $destSub, $nomeFinal));
             $this->ctx->meta->forgetOrigin($trashPath);
             $this->ctx->logger->log('RESTAURAR', $item);
             $this->flash('Restaurado!', 'success');
@@ -64,6 +65,7 @@ final class TrashController extends Controller
         if ($area === FileStorage::AREA_TRASH && $item !== '' && file_exists($alvo)) {
             $trashPath = $s->metaPath(FileStorage::AREA_TRASH, $sub, $item);
             $this->ctx->meta->removed($trashPath);
+            $this->ctx->access->removed($trashPath);
             $this->ctx->meta->forgetOrigin($trashPath);
             $s->delete($alvo);
             $this->flash('Excluído.', 'success');
@@ -85,6 +87,7 @@ final class TrashController extends Controller
             $s->delete($root . $name);
         }
         $this->ctx->meta->removed('.lixeira');
+        $this->ctx->access->removed('.lixeira');
         $this->ctx->meta->forgetAllOrigins();
 
         $this->ctx->logger->log('LIXEIRA', 'Esvaziada');

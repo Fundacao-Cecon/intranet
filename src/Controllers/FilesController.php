@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Services\FileStorage;
+use App\Services\FolderAccess;
 use ZipArchive;
 
 /** Listagem, upload, pastas, renomear, mover p/ lixeira, download e ZIP. */
@@ -24,6 +25,13 @@ final class FilesController extends Controller
         list($dirs, $files) = $s->listDir($absDir);
         $names = array_merge($dirs, $files);
 
+        $isAdmin = $auth->isAdmin();
+        // Pastas fechadas para este usuário aparecem com cadeado (ADR 0006); admin vê as regras.
+        $locked = $isTrash ? [] : $this->ctx->access->lockedMap($auth->user(), $sub, $dirs);
+        $rules = $isAdmin && !$isTrash && $dirs
+            ? $this->ctx->access->rules(array_map(function ($d) use ($sub) { return trim($sub . '/' . $d, '/'); }, $dirs))
+            : [];
+
         // Uma única consulta para todos os metadados da página.
         $metaPaths = [];
         foreach ($names as $n) {
@@ -37,6 +45,8 @@ final class FilesController extends Controller
             $isDir = is_dir($full);
             $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
             $m = $meta[$metaPaths[$name]] ?? null;
+            $isLocked = $isDir && !empty($locked[$name]);
+            $rule = $isDir ? ($rules[$metaPaths[$name]] ?? null) : null;
 
             $fileParams = $base + ['action' => 'download', 'file' => $name];
             $rows[] = [
@@ -44,12 +54,14 @@ final class FilesController extends Controller
                 'isDir'     => $isDir,
                 'ext'       => $ext,
                 'size'      => $isDir ? '-' : formatarTamanho(filesize($full)),
-                'date'      => date('d/m/Y H:i', filemtime($full)),
-                'createdBy' => $m['created_by'] ?? '-',
-                'updatedBy' => $m['updated_by'] ?? '-',
+                'date'      => $isLocked ? '-' : date('d/m/Y H:i', filemtime($full)),
+                'createdBy' => $isLocked ? '-' : ($m['created_by'] ?? '-'),
+                'updatedBy' => $isLocked ? '-' : ($m['updated_by'] ?? '-'),
                 'isImage'   => !$isDir && in_array($ext, $cfg['image_extensions'], true),
                 'canInline' => !$isDir && isset($cfg['inline_mime'][$ext]),
-                'openUrl'   => $isDir ? url(['dir' => trim($sub . '/' . $name, '/')]) : null,
+                'locked'    => $isLocked,
+                'rule'      => $rule,
+                'openUrl'   => $isDir && !$isLocked ? url(['dir' => trim($sub . '/' . $name, '/')]) : null,
                 'downloadUrl' => $isDir ? null : url($fileParams),
                 'inlineUrl'   => $isDir ? null : url($fileParams + ['inline' => 1]),
             ];
@@ -60,12 +72,13 @@ final class FilesController extends Controller
             $acc = '';
             foreach (explode('/', $sub) as $part) {
                 $acc .= ($acc === '' ? '' : '/') . $part;
-                $breadcrumbs[] = ['nome' => $part, 'url' => url(['dir' => $acc] + ($isTrash ? ['mode' => 'trash'] : []))];
+                $breadcrumbs[] = ['nome' => $part, 'path' => $acc, 'url' => url(['dir' => $acc] + ($isTrash ? ['mode' => 'trash'] : []))];
             }
         }
 
-        $isAdmin = $auth->isAdmin();
         view('files/index', [
+            'tree'        => $isTrash ? null : $this->buildTree($sub),
+            'currentDir'  => $sub,
             'flash'       => $this->takeFlash(),
             'isTrash'     => $isTrash,
             'isAdmin'     => $isAdmin,
@@ -76,7 +89,68 @@ final class FilesController extends Controller
             'breadcrumbs' => $breadcrumbs,
             'logs'        => $isAdmin ? $this->ctx->logger->recent(50) : [],
             'users'       => $isAdmin ? $auth->listUsers() : [],
+            'groups'      => $isAdmin ? $this->ctx->groups->all() : [],
         ]);
+    }
+
+    /** Subpastas diretas de uma pasta, em JSON, para a árvore lateral carregar sob demanda. */
+    public function tree(): void
+    {
+        list($area, , $sub) = $this->location();
+        $this->json([
+            'dir'      => $sub,
+            'children' => $area === FileStorage::AREA_FILES ? $this->treeLevel($sub) : [],
+        ]);
+    }
+
+    /**
+     * Subpastas diretas de $sub (já liberada por location()): nome, caminho, cadeado e se têm filhas.
+     * Pasta fechada vem sem filhas: o cliente não pode nem sondar o que há dentro.
+     */
+    private function treeLevel(string $sub): array
+    {
+        $s = $this->ctx->storage;
+        list($abs) = $s->resolve(FileStorage::AREA_FILES, $sub);
+        list($dirs) = $s->listDir($abs);
+        $locked = $this->ctx->access->lockedMap($this->ctx->auth->user(), $sub, $dirs);
+
+        $nodes = [];
+        foreach ($dirs as $d) {
+            $isLocked = !empty($locked[$d]);
+            $nodes[] = [
+                'name'        => $d,
+                'path'        => trim($sub . '/' . $d, '/'),
+                'locked'      => $isLocked,
+                'hasChildren' => !$isLocked && $s->hasSubdirs($abs . $d . '/'),
+            ];
+        }
+        return $nodes;
+    }
+
+    /**
+     * Árvore inicial da página: a raiz e, aberta, a cadeia até a pasta atual (o resto o JS carrega).
+     *
+     * 'rootNodes' é só o primeiro nível, sem filhas abertas: alimenta o seletor de destino do "Mover".
+     *
+     * @return array ['nodes' => array, 'current' => string, 'rootNodes' => array]
+     */
+    private function buildTree(string $sub): array
+    {
+        $root = $this->treeLevel('');
+        $closed = array_map(function ($n) { return $n + ['children' => null]; }, $root);
+        return ['nodes' => $this->attachChain($root, FolderAccess::chain($sub), 0), 'current' => $sub, 'rootNodes' => $closed];
+    }
+
+    private function attachChain(array $nodes, array $chain, int $depth): array
+    {
+        foreach ($nodes as &$n) {
+            $n['children'] = null;
+            if (isset($chain[$depth]) && $n['path'] === $chain[$depth] && !$n['locked']) {
+                $n['children'] = $this->attachChain($this->treeLevel($n['path']), $chain, $depth + 1);
+            }
+        }
+        unset($n);
+        return $nodes;
     }
 
     // ------------------------------------------------------------------
@@ -124,6 +198,7 @@ final class FilesController extends Controller
                     $s->metaPath($area, $sub, $new),
                     (string) $this->ctx->auth->username()
                 );
+                $this->ctx->access->renamed($s->metaPath($area, $sub, $ant), $s->metaPath($area, $sub, $new));
                 $this->ctx->logger->log('RENAME', "$ant -> $new");
                 $this->flash('Renomeado!', 'success');
                 $this->redirectBack();
@@ -151,11 +226,99 @@ final class FilesController extends Controller
                 $trashPath = $s->metaPath(FileStorage::AREA_TRASH, '', $dest);
                 $this->ctx->meta->renamed($originPath, $trashPath, (string) $this->ctx->auth->username());
                 $this->ctx->meta->rememberOrigin($trashPath, $originPath);
+                $this->ctx->access->renamed($originPath, $trashPath); // a restrição vai junto e volta ao restaurar
                 $this->ctx->logger->log('LIXEIRA', 'Movido: ' . $item);
                 $this->flash('Movido p/ lixeira.', 'success');
                 $this->redirectBack();
             }
             $this->flash('Erro ao mover.', 'error');
+        }
+        $this->redirectBack();
+    }
+
+    /**
+     * Move arquivos e pastas da pasta atual para outra pasta (admin). Cada item é tratado sozinho:
+     * o que não puder ir (inexistente, oculto, link simbólico, pasta para dentro de si mesma) é
+     * ignorado e contado. Nome já usado no destino ganha "(1)", como ao restaurar da lixeira.
+     * Autoria e regras de acesso acompanham o item.
+     */
+    public function move(): void
+    {
+        $this->requireAdmin();
+        $s = $this->ctx->storage;
+        list($area, $absDir, $sub) = $this->location();
+
+        $items = $this->postNames('items');
+        $dest = trim(str_replace('\\', '/', $this->post('dest')), '/');
+        list($destAbs, $destSub) = $s->resolve(FileStorage::AREA_FILES, $dest);
+
+        if ($area !== FileStorage::AREA_FILES || !$items) {
+            $this->flash('Nada selecionado.', 'error');
+        } elseif ($destSub !== $dest) { // resolve() devolve a raiz para destino inexistente ou suspeito
+            $this->flash('Pasta de destino inválida.', 'error');
+        } elseif ($destSub === $sub) {
+            $this->flash('Os itens já estão nessa pasta.', 'warning');
+        } else {
+            $moved = 0;
+            $skipped = 0;
+            $user = (string) $this->ctx->auth->username();
+            foreach ($items as $name) {
+                $src = $absDir . $name;
+                $from = $s->metaPath($area, $sub, $name);
+                $intoItself = is_dir($src) && $s->isSameOrInside($destSub, $from);
+                if ($s->isHidden($name) || !file_exists($src) || is_link($src) || $intoItself) {
+                    $skipped++;
+                    continue;
+                }
+                // Arquivo: o nome é reservado de forma atômica, então dois "mover" para o mesmo destino não se
+                // sobrescrevem. Pasta não tem como reservar (rename sobre pasta existente falha no Windows).
+                $isFile = is_file($src);
+                $final = $isFile
+                    ? $s->reserveKeepingName($destAbs, $name)
+                    : (file_exists($destAbs . $name) ? $s->uniqueName($destAbs, $name) : $name);
+                if (!@rename($src, $destAbs . $final)) {
+                    if ($isFile) {
+                        @unlink($destAbs . $final); // desistiu: não deixa o placeholder vazio
+                    }
+                    $skipped++;
+                    continue;
+                }
+                $to = $s->metaPath(FileStorage::AREA_FILES, $destSub, $final);
+                $this->ctx->meta->renamed($from, $to, $user);
+                $this->ctx->access->renamed($from, $to);
+                $this->ctx->logger->log('MOVER', $name . ' -> ' . ($destSub === '' ? '(início)' : $destSub));
+                $moved++;
+            }
+            $msg = $moved . ($moved === 1 ? ' item movido' : ' itens movidos') . ($skipped ? ", $skipped ignorado(s)." : '.');
+            $this->flash($msg, $moved === 0 ? 'error' : ($skipped ? 'warning' : 'success'));
+        }
+        $this->redirectBack();
+    }
+
+    /** Define (ou remove) a regra de acesso de uma pasta da pasta atual. */
+    public function setFolderAccess(): void
+    {
+        $this->requireAdmin();
+        $s = $this->ctx->storage;
+        list($area, $absDir, $sub) = $this->location();
+
+        $folder = $s->safeItem($this->post('folder'));
+        if ($area !== FileStorage::AREA_FILES || $folder === '' || $s->isHidden($folder) || !is_dir($absDir . $folder)) {
+            $this->flash('Pasta não encontrada.', 'error');
+            $this->redirectBack();
+        }
+
+        $path = $s->metaPath($area, $sub, $folder);
+        if ($this->post('mode') === 'restrict') {
+            $users = $this->postIds('users');
+            $groups = $this->postIds('groups');
+            $this->ctx->access->setRule($path, $users, $groups);
+            $this->ctx->logger->log('ACESSO', sprintf('%s: restrita (%d usuários, %d grupos)', $path, count($users), count($groups)));
+            $this->flash('Acesso restrito salvo.', 'success');
+        } else {
+            $this->ctx->access->clearRule($path);
+            $this->ctx->logger->log('ACESSO', $path . ': herda da pasta de cima');
+            $this->flash('A pasta voltou a herdar o acesso.', 'success');
         }
         $this->redirectBack();
     }

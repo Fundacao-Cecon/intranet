@@ -24,10 +24,12 @@ Login, pastas, upload, lixeira, auditoria e autoria de cada arquivo, em PHP puro
 
 ## 📁 Funcionalidades
 
-- **Navegação e busca** por pastas, com visualização de imagens, PDF e vídeo no navegador.
+- **Navegação e busca** por pastas, com **árvore lateral** (carrega sob demanda, teclado e leitor de tela) e visualização de imagens, PDF e vídeo no navegador.
 - **Upload** por arrastar e soltar, criação de pastas e renomeação.
+- **Mover** arquivos e pastas entre pastas, por botão, modal com seletor de destino ou arrastando para a lista, a árvore ou as migalhas; soltar arquivos do computador sobre uma pasta envia para ela.
 - **Download** de arquivos e de seleções inteiras em ZIP.
 - **Lixeira** com restauração, exclusão definitiva e esvaziamento.
+- **Acesso por pasta**: pastas restritas a usuários e grupos, com cadeado para quem não pode entrar.
 - **Autoria**: cada item mostra quem criou e quem editou.
 - **Auditoria**: Painel Master com o registro de quem fez o quê.
 - **Tema claro e escuro**, que lembra a escolha de cada pessoa.
@@ -35,7 +37,7 @@ Login, pastas, upload, lixeira, auditoria e autoria de cada arquivo, em PHP puro
 | Perfil | Pode |
 |---|---|
 | `user` | entrar, navegar, buscar, visualizar, baixar (inclusive ZIP) e trocar a própria senha |
-| `admin` | tudo do `user`, mais upload, pastas, renomear, lixeira, usuários e logs |
+| `admin` | tudo do `user`, mais upload, pastas, renomear, lixeira, usuários, grupos, acesso por pasta e logs |
 
 Detalhes e regras de sessão em [usuarios-e-permissoes.md](docs/usuarios-e-permissoes.md).
 
@@ -128,6 +130,7 @@ docs/      documentação e decisões de arquitetura (ADRs)
 - Dados em `storage/`, **fora do docroot**; arquivos nunca são servidos direto pelo servidor web ([ADR-0001](docs/decisoes/0001-docroot-public.md), [ADR-0002](docs/decisoes/0002-download-via-php.md)).
 - Download só por `?action=download`, exige login, valida o caminho e usa lista branca de tipos para abrir no navegador (SVG e XML sempre baixam).
 - **CSRF** obrigatório em todo POST.
+- **Permissões por pasta** (usuários e grupos) checadas num ponto único, inclusive para download e ZIP ([ADR-0006](docs/decisoes/0006-permissoes-por-pasta.md)).
 - Sessão com `HttpOnly`, `SameSite=Lax` e `Secure` em HTTPS; expira por inatividade e por tempo absoluto.
 - Bloqueio temporário após falhas de login; endurecimento em andamento na [ADR-0005](docs/decisoes/0005-endurecimento-do-login.md).
 

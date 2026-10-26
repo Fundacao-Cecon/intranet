@@ -12,6 +12,9 @@
  * @var array      $breadcrumbs  [['nome','url'], ...]
  * @var array      $logs
  * @var array      $users
+ * @var array      $groups       grupos (admin)
+ * @var string     $currentDir   pasta aberta ('' = raiz)
+ * @var array|null $tree         árvore lateral: ['nodes' => ..., 'current' => ...]; null na lixeira
  */
 ?><!DOCTYPE html>
 <html lang="pt-br">
@@ -57,13 +60,32 @@
 
         <div class="content-body">
 
+            <div class="layout-tree">
+            <?php if ($tree): ?>
+            <aside class="tree-panel" id="treePanel" aria-label="Árvore de pastas">
+                <ul role="tree" aria-label="Pastas" data-tree data-tree-url="<?= h(url(['action' => 'tree'])) ?>">
+                    <li role="treeitem" tabindex="0" aria-level="1" aria-expanded="true" data-path="" data-loaded="1">
+                        <div class="tree-row<?= $tree['current'] === '' ? ' current' : '' ?>">
+                            <span class="tree-toggle" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+                            <a href="<?= h(url()) ?>" tabindex="-1"<?= $tree['current'] === '' ? ' aria-current="page"' : '' ?>><i aria-hidden="true" class="fas fa-home"></i> Início</a>
+                        </div>
+                        <?php if ($tree['nodes']) { view('files/tree', ['nodes' => $tree['nodes'], 'current' => $tree['current'], 'level' => 2]); } ?>
+                    </li>
+                </ul>
+            </aside>
+            <?php endif; ?>
+            <div class="main-col">
+
             <?php if (!$isTrash): ?>
             <div class="page-header">
                 <div class="nav-bar">
+                    <?php if ($tree): ?>
+                    <button type="button" class="btn-header tree-toggle-btn" data-tree-toggle aria-controls="treePanel" aria-expanded="true"><i aria-hidden="true" class="fas fa-sitemap"></i> Pastas</button>
+                    <?php endif; ?>
                     <div class="breadcrumbs">
-                        <a href="<?= h(url()) ?>"><i aria-hidden="true" class="fas fa-home"></i> Início</a>
+                        <a href="<?= h(url()) ?>" data-drop-dir=""><i aria-hidden="true" class="fas fa-home"></i> Início</a>
                         <?php foreach ($breadcrumbs as $crumb): ?>
-                            <span class="separator">/</span> <a href="<?= h($crumb['url']) ?>"><?= h($crumb['nome']) ?></a>
+                            <span class="separator">/</span> <a href="<?= h($crumb['url']) ?>" data-drop-dir="<?= h($crumb['path']) ?>"><?= h($crumb['nome']) ?></a>
                         <?php endforeach; ?>
                     </div>
                     <div class="search-box"><i aria-hidden="true" class="fas fa-search"></i> <input type="text" id="searchInput" placeholder="Buscar..." aria-label="Buscar nesta pasta"></div>
@@ -124,15 +146,17 @@
                         <div class="col-date">Data</div>
                         <div class="col-actions">Ações</div>
                     </div>
-                    <ul id="fileList" style="list-style:none; padding:0; margin:0;">
+                    <ul id="fileList" data-current-dir="<?= h($currentDir) ?>" style="list-style:none; padding:0; margin:0;">
                         <?php if (!$rows): ?>
                             <li class="empty-state"><i aria-hidden="true" class="fas <?= $isTrash ? 'fa-trash-alt' : 'fa-folder-open' ?>"></i><h3><?= $isTrash ? 'Lixeira Vazia' : 'Esta pasta está vazia' ?></h3></li>
                         <?php else: ?>
                             <?php foreach ($rows as $r): ?>
-                            <li class="file-item filterable-item">
-                                <div class="col-check"><?php if (!$r['isDir'] && !$isTrash): ?><input type="checkbox" name="selecionados[]" value="<?= h($r['name']) ?>" class="file-checkbox item-check" aria-label="Selecionar <?= h($r['name']) ?>"><?php endif; ?></div>
+                            <li class="file-item filterable-item" data-name="<?= h($r['name']) ?>" data-dir="<?= $r['isDir'] && !$r['locked'] ? '1' : '0' ?>"<?= $isAdmin && !$isTrash ? ' draggable="true"' : '' ?>>
+                                <div class="col-check"><?php if (!$isTrash && (!$r['isDir'] || $isAdmin)): ?><input type="checkbox" name="selecionados[]" value="<?= h($r['name']) ?>" class="file-checkbox item-check"<?= $r['isDir'] ? ' data-dir-item="1"' : '' ?> aria-label="Selecionar <?= h($r['name']) ?>"><?php endif; ?></div>
                                 <div class="col-icon">
-                                    <?php if ($r['isDir']): ?>
+                                    <?php if ($r['locked']): ?>
+                                        <i aria-hidden="true" class="fas fa-lock" style="color:#999;"></i>
+                                    <?php elseif ($r['isDir']): ?>
                                         <i aria-hidden="true" class="fas fa-folder" style="color:#f39c12;"></i>
                                     <?php elseif ($r['isImage']): ?>
                                         <img src="<?= h($r['inlineUrl']) ?>" class="file-thumb" alt="">
@@ -143,7 +167,9 @@
                                     <?php endif; ?>
                                 </div>
                                 <div class="col-name">
-                                    <?php if ($r['isDir'] && !$isTrash): ?>
+                                    <?php if ($r['locked']): ?>
+                                        <span class="locked-name" title="Acesso restrito: você não tem permissão para abrir esta pasta"><?= h($r['name']) ?> <small class="locked-tag"><i aria-hidden="true" class="fas fa-lock"></i> restrita</small></span>
+                                    <?php elseif ($r['isDir'] && !$isTrash): ?>
                                         <a href="<?= h($r['openUrl']) ?>"><?= h($r['name']) ?></a>
                                     <?php elseif (!$r['isDir'] && !$isTrash): ?>
                                         <a href="<?= h($r['downloadUrl']) ?>"><?= h($r['name']) ?></a>
@@ -172,7 +198,11 @@
                                             <?php endif; ?>
                                         <?php endif; ?>
 
+                                        <?php if ($isAdmin && $r['isDir']): ?>
+                                            <button type="button" class="btn-icon<?= $r['rule'] ? ' has-rule' : '' ?>" data-folder-access="<?= h($r['name']) ?>" data-access="<?= h(json_encode($r['rule'] ?: new stdClass())) ?>" data-restricted="<?= $r['rule'] ? '1' : '0' ?>" aria-label="Acesso à pasta <?= h($r['name']) ?><?= $r['rule'] ? ' (restrita)' : '' ?>" title="<?= $r['rule'] ? 'Acesso restrito' : 'Acesso: herda da pasta de cima' ?>"><i aria-hidden="true" class="fas <?= $r['rule'] ? 'fa-lock' : 'fa-lock-open' ?>"></i></button>
+                                        <?php endif; ?>
                                         <?php if ($isAdmin): ?>
+                                            <button type="button" class="btn-icon" data-move="<?= h($r['name']) ?>" aria-label="Mover <?= h($r['name']) ?>" title="Mover para outra pasta"><i aria-hidden="true" class="fas fa-folder-tree"></i></button>
                                             <button type="button" class="btn-icon" data-rename="<?= h($r['name']) ?>" aria-label="Renomear <?= h($r['name']) ?>" title="Renomear"><i aria-hidden="true" class="fas fa-edit"></i></button>
                                             <button type="button" class="btn-icon delete" title="Mover para a lixeira" aria-label="Mover <?= h($r['name']) ?> para a lixeira" data-post-action="trash" data-item="<?= h($r['name']) ?>"><i aria-hidden="true" class="fas fa-trash"></i></button>
                                         <?php elseif (!$r['isDir']): ?>
@@ -184,22 +214,30 @@
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </ul>
-                    <?php if (!$isTrash && $hasFiles): ?>
-                    <div class="file-list-footer"><button type="submit" name="action" value="zip" id="btnZip" class="btn-zip">Baixar Selecionados (ZIP)</button></div>
+                    <?php if (!$isTrash && ($hasFiles || ($isAdmin && $rows))): ?>
+                    <div class="file-list-footer">
+                        <?php if ($isAdmin): ?><button type="button" id="btnMove" class="btn-move">Mover selecionados</button><?php endif; ?>
+                        <?php if ($hasFiles): ?><button type="submit" name="action" value="zip" id="btnZip" class="btn-zip">Baixar Selecionados (ZIP)</button><?php endif; ?>
+                    </div>
                     <?php endif; ?>
                 </div>
             </form>
+
+            </div>
+            </div>
 
             <div class="footer-credit">Desenvolvido por <strong>Tecnologia da Informação</strong></div>
         </div>
     </div>
 
     <?php if ($isAdmin): ?>
-        <?php view('modals/admin', ['logs' => $logs, 'users' => $users, 'currentUserId' => $currentUserId]); ?>
+        <?php view('modals/admin', ['logs' => $logs, 'users' => $users, 'groups' => $groups, 'currentUserId' => $currentUserId, 'moveNodes' => $tree ? $tree['rootNodes'] : null]); ?>
     <?php endif; ?>
     <?php view('modals/common', ['isAdmin' => $isAdmin]); ?>
 
     <script src="assets/js/theme.js"></script>
     <script src="assets/js/app.js"></script>
+    <?php if ($tree): ?><script src="assets/js/tree.js"></script><?php endif; ?>
+    <?php if ($tree && $isAdmin): ?><script src="assets/js/move.js"></script><?php endif; ?>
 </body>
 </html>

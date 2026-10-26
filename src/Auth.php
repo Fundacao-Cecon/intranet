@@ -259,6 +259,10 @@ final class Auth
 
             $del = $this->db->prepare("DELETE FROM users WHERE id = ?");
             $del->execute([$id]);
+            // Some das regras de pasta e dos grupos (ids de usuário não são reaproveitados
+            // pelo AUTOINCREMENT, mas as ligações não podem sobrar).
+            $this->db->prepare("DELETE FROM folder_rule_users WHERE user_id = ?")->execute([$id]);
+            $this->db->prepare("DELETE FROM group_members WHERE user_id = ?")->execute([$id]);
             $this->db->exec('COMMIT');
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) {

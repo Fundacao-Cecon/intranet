@@ -45,7 +45,7 @@ file_put_contents("$storage/trash/velho.txt", 'lixo');
 $db = Database::connect("$storage/database.db");
 $logger = new Logger($db);
 $seed = new Auth($db, $logger, $config['auth']);
-foreach (['admin1' => 'admin', 'admin2' => 'admin', 'user1' => 'user', 'victim' => 'user', 'chpw' => 'user', 'lockuser' => 'user', 'novo2' => 'user'] as $u => $role) {
+foreach (['admin1' => 'admin', 'admin2' => 'admin', 'user1' => 'user', 'victim' => 'user', 'chpw' => 'user', 'lockuser' => 'user', 'novo2' => 'user', 'rh1' => 'user', 'rh2' => 'user', 'outro' => 'user'] as $u => $role) {
     [$ok, $msg] = $seed->createUser($u, PW, $role);
     if (!$ok) { exit("setup falhou ($u): $msg\n"); }
 }
@@ -639,6 +639,363 @@ test('lista de usuários não vaza hash e não oferece excluir a si mesmo', func
     $body = $admin->get('/')->body;
     check(strpos($body, '$2y$') === false, 'hash de senha apareceu no HTML');
     check(substr_count($body, 'data-post-action="delete_user"') === count(dbq('SELECT 1 FROM users')) - 1, 'botão de excluir deveria faltar só para o próprio usuário');
+});
+
+// ===================================================================================
+suite('Permissões por pasta (usuários e grupos, ADR 0006)');
+// ===================================================================================
+
+// RH: fechada ao grupo "RH Equipe" (rh1) e ao usuário rh2; "outro" não entra. RH/Sub só para rh2.
+foreach (["$storage/uploads/RH/Sub", "$storage/uploads/Aberta"] as $d) { mkdir($d, 0775, true); }
+file_put_contents("$storage/uploads/RH/folha.txt", 'SALARIOS-SECRETOS');
+file_put_contents("$storage/uploads/RH/Sub/dentro.txt", 'SUBPASTA-SECRETA');
+file_put_contents("$storage/uploads/Aberta/livre.txt", 'LIVRE');
+$uid = function (string $name): int { return (int) dbq('SELECT id FROM users WHERE username = ?', [$name])[0]['id']; };
+$rh1 = login('rh1');
+$rh2 = login('rh2');
+$outro = login('outro');
+$gid = 0;
+
+test('admin cria grupo, põe rh1 nele e restringe RH ao grupo + rh2', function () use ($admin, &$gid, $uid) {
+    $r = $admin->follow($admin->post('/', ['action' => 'create_group', 'group_name' => 'RH Equipe']));
+    check($r->flash() === 'Grupo criado!', 'criar grupo: ' . $r->flash());
+    $gid = (int) dbq("SELECT id FROM groups WHERE name = 'RH Equipe'")[0]['id'];
+    $r = $admin->follow($admin->post('/', ['action' => 'set_group_members', 'id' => $gid, 'members' => [$uid('rh1')]]));
+    check($r->flash() === 'Membros atualizados.', 'membros: ' . $r->flash());
+    $r = $admin->follow($admin->post('/', ['action' => 'set_folder_access', 'folder' => 'RH', 'mode' => 'restrict', 'users' => [$uid('rh2')], 'groups' => [$gid]]));
+    check($r->flash() === 'Acesso restrito salvo.', 'regra: ' . $r->flash());
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path = 'RH'")) === 1, 'regra não gravada');
+});
+
+test('quem não está na regra vê a pasta com cadeado, sem link, sem autoria e sem data', function () use ($outro) {
+    $b = $outro->get('/')->body;
+    check(strpos($b, 'locked-name') !== false && strpos($b, 'restrita') !== false, 'sem cadeado');
+    check(strpos($b, 'dir=RH') === false, 'link para a pasta fechada apareceu');
+    check(strpos($b, 'data-folder-access') === false, 'botão de admin apareceu para usuário comum');
+    check(strpos($b, 'Docs') !== false && strpos($b, 'dir=Docs') !== false, 'pasta livre deveria continuar aberta');
+});
+
+test('abrir a pasta fechada pela URL volta à raiz com "Acesso negado"; filhos também', function () use ($outro) {
+    foreach (['RH', 'RH/Sub', 'RH/', 'RH//Sub'] as $d) {
+        $r = $outro->get('/index.php?dir=' . $d);
+        if ($d === 'rh%2fSub') { // caixa diferente: não existe no Linux, na raiz no Windows ou 302 se resolver
+            check(strpos($r->body, 'SALARIOS-SECRETOS') === false && strpos($r->body, 'SUBPASTA-SECRETA') === false, "$d vazou");
+            continue;
+        }
+        check($r->status === 302, "$d => {$r->status}");
+        check($outro->follow($r)->flash() === 'Acesso negado a esta pasta.', "$d: aviso");
+    }
+});
+
+test('download e ZIP de dentro da pasta fechada: 403 sem o conteúdo', function () use ($outro) {
+    foreach (['/index.php?action=download&dir=RH&file=folha.txt', '/index.php?action=download&dir=RH/Sub&file=dentro.txt', '/index.php?action=download&dir=RH&file=folha.txt&inline=1'] as $u) {
+        $r = $outro->get($u);
+        check($r->status === 403 && strpos($r->body, 'SECRETO') === false && $r->h('content-disposition') === '', "$u => {$r->status}");
+    }
+    $r = $outro->post('/index.php?dir=RH', ['action' => 'zip', 'selecionados' => ['folha.txt']]);
+    check($r->status === 403 && $r->h('content-type') !== 'application/zip' && strpos($r->body, 'PK') !== 0, 'ZIP: ' . $r->status);
+    $r = $outro->get('/index.php?action=download&dir=RH&file=folha.txt', ['X-Requested-With: XMLHttpRequest']);
+    check($r->status === 403 && json_decode($r->body, true)['status'] === 'error', 'versão ajax');
+});
+
+test('grupo e usuário listados entram: lista, baixa e baixa ZIP', function () use ($rh1, $rh2) {
+    foreach ([$rh1, $rh2] as $c) {
+        $r = $c->get('/index.php?dir=RH');
+        check($r->status === 200 && strpos($r->body, 'folha.txt') !== false, 'listagem de RH');
+        $d = $c->get('/index.php?action=download&dir=RH&file=folha.txt');
+        check($d->status === 200 && $d->body === 'SALARIOS-SECRETOS', 'download de RH');
+        $z = $c->post('/index.php?dir=RH', ['action' => 'zip', 'selecionados' => ['folha.txt']]);
+        check($z->status === 200 && strpos($z->body, 'PK') === 0, 'ZIP de RH: ' . $z->status);
+    }
+});
+
+test('regra de subpasta só estreita: RH/Sub só para rh2 (rh1 entra em RH, mas não em Sub)', function () use ($admin, $rh1, $rh2, $uid) {
+    $admin->post('/index.php?dir=RH', ['action' => 'set_folder_access', 'folder' => 'Sub', 'mode' => 'restrict', 'users' => [$uid('rh2')]]);
+    check(strpos($rh1->get('/index.php?dir=RH')->body, 'locked-name') !== false, 'Sub deveria aparecer com cadeado para rh1');
+    check($rh1->get('/index.php?dir=RH/Sub')->status === 302, 'rh1 entrou em Sub');
+    check($rh2->get('/index.php?dir=RH/Sub')->status === 200 && $rh2->get('/index.php?action=download&dir=RH/Sub&file=dentro.txt')->body === 'SUBPASTA-SECRETA', 'rh2 deveria entrar em Sub');
+});
+
+test('regra na filha não reabre o que o pai fechou (outro está em Sub, mas RH está fechada)', function () use ($admin, $outro, $uid) {
+    $admin->post('/index.php?dir=RH', ['action' => 'set_folder_access', 'folder' => 'Sub', 'mode' => 'restrict', 'users' => [$uid('outro'), $uid('rh2')]]);
+    check($outro->get('/index.php?dir=RH/Sub')->status === 302, 'filha reabriu a pasta do pai');
+    check($outro->get('/index.php?action=download&dir=RH/Sub&file=dentro.txt')->status === 403, 'download pela filha');
+});
+
+test('admin vê tudo e as regras no botão de acesso', function () use ($admin) {
+    $b = $admin->get('/')->body;
+    check(strpos($b, 'data-folder-access="RH"') !== false && strpos($b, 'data-restricted="1"') !== false, 'botão com regra');
+    check(strpos($b, 'data-folder-access="Aberta"') !== false && strpos($b, 'locked-name') === false, 'admin nunca vê cadeado');
+    check($admin->get('/index.php?dir=RH/Sub')->status === 200, 'admin entra em tudo');
+});
+
+test('renomear e mandar para a lixeira levam a regra junto; restaurar a devolve', function () use ($admin, $outro, $rh1, $storage) {
+    $admin->post('/', ['action' => 'rename', 'old_name' => 'RH', 'new_name' => 'RH2']);
+    check(is_dir("$storage/uploads/RH2"), 'renomear');
+    check($outro->get('/index.php?dir=RH2')->status === 302 && $outro->get('/index.php?action=download&dir=RH2&file=folha.txt')->status === 403, 'regra não acompanhou o rename');
+    check($rh1->get('/index.php?action=download&dir=RH2&file=folha.txt')->body === 'SALARIOS-SECRETOS', 'membro perdeu acesso após rename');
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path IN ('RH2','RH2/Sub')")) === 2 && !dbq("SELECT 1 FROM folder_rules WHERE path LIKE 'RH/%' OR path = 'RH'"), 'caminhos das regras');
+
+    $admin->post('/', ['action' => 'trash', 'item' => 'RH2']);
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path LIKE '.lixeira/RH2%'")) === 2, 'regra não foi para a lixeira');
+    $admin->post('/index.php?mode=trash', ['action' => 'restore', 'item' => 'RH2']);
+    check(is_dir("$storage/uploads/RH2") && count(dbq("SELECT 1 FROM folder_rules WHERE path IN ('RH2','RH2/Sub')")) === 2, 'regra não voltou');
+    check($outro->get('/index.php?dir=RH2')->status === 302, 'pasta restaurada ficou pública');
+
+    $admin->post('/', ['action' => 'rename', 'old_name' => 'RH2', 'new_name' => 'RH']);
+});
+
+test('excluir definitivamente e esvaziar a lixeira apagam as regras', function () use ($admin, $storage) {
+    $admin->post('/', ['action' => 'trash', 'item' => 'RH']);
+    $admin->post('/index.php?mode=trash', ['action' => 'purge', 'item' => 'RH']);
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '%RH%'") && !dbq("SELECT 1 FROM folder_rule_users WHERE path LIKE '%RH%'"), 'sobrou regra após purge');
+    mkdir("$storage/uploads/Tmp", 0775);
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Tmp', 'mode' => 'restrict']);
+    $admin->post('/', ['action' => 'trash', 'item' => 'Tmp']);
+    $admin->post('/index.php?mode=trash', ['action' => 'empty_trash']);
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '.lixeira%'"), 'sobrou regra após esvaziar');
+});
+
+test('"só admins" (restringir sem marcar ninguém) e voltar a herdar', function () use ($admin, $rh1) {
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Aberta', 'mode' => 'restrict']);
+    check($rh1->get('/index.php?dir=Aberta')->status === 302, 'só admins deixou usuário entrar');
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Aberta', 'mode' => 'inherit']);
+    check($rh1->get('/index.php?dir=Aberta')->status === 200, 'inherit não reabriu');
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path = 'Aberta'"), 'regra não removida');
+});
+
+test('excluir o grupo ou o usuário tira o acesso de quem dependia deles', function () use ($admin, $rh1, $storage, $uid, &$gid) {
+    mkdir("$storage/uploads/Fin", 0775);
+    file_put_contents("$storage/uploads/Fin/x.txt", 'FIN');
+    $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Fin', 'mode' => 'restrict', 'groups' => [$gid], 'users' => [$uid('novo2')]]);
+    check($rh1->get('/index.php?dir=Fin')->status === 200, 'membro do grupo deveria entrar');
+    $admin->post('/', ['action' => 'delete_group', 'id' => $gid]);
+    check($rh1->get('/index.php?dir=Fin')->status === 302, 'grupo excluído ainda dá acesso');
+    check(!dbq('SELECT 1 FROM group_members WHERE group_id = ?', [$gid]) && !dbq('SELECT 1 FROM folder_rule_groups WHERE group_id = ?', [$gid]), 'ligações do grupo sobraram');
+    $admin->post('/', ['action' => 'create_group', 'group_name' => 'Temporario']);
+    $tid = (int) dbq("SELECT id FROM groups WHERE name = 'Temporario'")[0]['id'];
+    $admin->post('/', ['action' => 'set_group_members', 'id' => $tid, 'members' => [$uid('novo2')]]);
+    check(count(dbq('SELECT 1 FROM group_members WHERE group_id = ?', [$tid])) === 1, 'membro não entrou no grupo');
+    $admin->post('/', ['action' => 'delete_user', 'id' => $uid('novo2')]);
+    check(!dbq("SELECT 1 FROM folder_rule_users WHERE path = 'Fin'"), 'ligação do usuário excluído sobrou');
+    check(!dbq('SELECT 1 FROM group_members WHERE group_id = ?', [$tid]), 'usuário excluído continua membro do grupo');
+});
+
+test('usuário comum não define regras nem gerencia grupos; sem CSRF = 419; pasta inválida é recusada', function () use ($outro, $admin, $storage, $uid) {
+    foreach ([['action' => 'set_folder_access', 'folder' => 'Docs', 'mode' => 'restrict'], ['action' => 'create_group', 'group_name' => 'Hack'], ['action' => 'delete_group', 'id' => 1], ['action' => 'set_group_members', 'id' => 1, 'members' => [1]]] as $f) {
+        $outro->post('/', $f);
+    }
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path = 'Docs'") && !dbq("SELECT 1 FROM groups WHERE name = 'Hack'"), 'usuário comum mexeu em permissões');
+    check($admin->post('/', ['action' => 'create_group', 'group_name' => 'Sem CSRF'], false)->status === 419, 'sem CSRF deveria ser 419');
+    foreach (['..', 'naoexiste', 'logo.png', '', '.htaccess'] as $bad) {
+        $r = $admin->follow($admin->post('/', ['action' => 'set_folder_access', 'folder' => $bad, 'mode' => 'restrict']));
+        check($r->flash() === 'Pasta não encontrada.', json_encode($bad) . ' => ' . $r->flash());
+    }
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path IN ('logo.png', '', '..', 'naoexiste')"), 'regra criada para alvo inválido');
+});
+
+test('grupos: nomes inválidos ou repetidos (sem diferenciar maiúsculas) são recusados', function () use ($admin) {
+    $admin->post('/', ['action' => 'create_group', 'group_name' => 'TI']);
+    foreach (['', 'x', '<script>', 'ti', ' TI ', str_repeat('a', 51)] as $bad) {
+        $r = $admin->follow($admin->post('/', ['action' => 'create_group', 'group_name' => $bad]));
+        check($r->flash() !== 'Grupo criado!', json_encode($bad) . ' foi aceito');
+    }
+    check((int) dbq("SELECT COUNT(*) n FROM groups WHERE name = 'TI' COLLATE NOCASE")[0]['n'] === 1, 'grupo duplicado');
+});
+
+// ===================================================================================
+suite('Árvore de pastas (GET ?action=tree)');
+// ===================================================================================
+
+foreach (["$storage/uploads/Arv/Sub/Fundo", "$storage/uploads/Arv/Fechada/Interna", "$storage/uploads/Arv/Vazia", "$storage/uploads/Cães & gatos"] as $d) { mkdir($d, 0775, true); }
+file_put_contents("$storage/uploads/Arv/solto.txt", 'arquivo não entra na árvore');
+$admin->post('/index.php?dir=Arv', ['action' => 'set_folder_access', 'folder' => 'Fechada', 'mode' => 'restrict', 'users' => [$uid('rh2')]]);
+$ajax = ['X-Requested-With: XMLHttpRequest'];
+$tree = function (Client $c, string $dir = '', string $extra = '') use ($ajax): array {
+    $r = $c->get('/index.php?action=tree&dir=' . rawurlencode($dir) . $extra, $ajax);
+    check($r->status === 200 && stripos($r->h('content-type'), 'application/json') === 0, "tree($dir): status {$r->status} " . $r->h('content-type'));
+    return json_decode($r->body, true);
+};
+$byName = function (array $t): array { return array_column($t['children'], null, 'name'); };
+
+test('anônimo não recebe a árvore (cai no login)', function () use ($anon) {
+    $r = $anon->get('/index.php?action=tree');
+    check(strpos($r->body, 'Acesso Intranet') !== false && strpos($r->body, '"children"') === false, 'vazou JSON sem login');
+});
+
+test('raiz: só subpastas (sem arquivos nem ocultos), em ordem natural, com hasChildren certo', function () use ($user, $tree, $byName) {
+    $t = $tree($user);
+    check($t['dir'] === '', 'dir');
+    $names = array_column($t['children'], 'name');
+    check(in_array('Docs', $names, true) && in_array('Arv', $names, true) && in_array('Vazia', $names, true), json_encode($names));
+    foreach (['logo.png', 'evil.svg', '.htaccess', 'web.config', 'database.db', '.lixeira'] as $no) {
+        check(!in_array($no, $names, true), "$no não é pasta");
+    }
+    $by = $byName($t);
+    check($by['Docs']['hasChildren'] === true && $by['Vazia']['hasChildren'] === false, 'hasChildren de Docs/Vazia');
+    check($by['Docs']['path'] === 'Docs' && $by['Docs']['locked'] === false, 'path/locked');
+    $sorted = $names;
+    natcasesort($sorted);
+    check($names === array_values($sorted), 'ordem natural');
+});
+
+test('subpasta: lista só as filhas diretas; arquivo solto não aparece; nome com & e acento vai intacto no JSON', function () use ($user, $tree, $byName) {
+    $t = $tree($user, 'Arv');
+    check($t['dir'] === 'Arv', 'dir');
+    $by = $byName($t);
+    check(array_keys($by) === ['Fechada', 'Sub', 'Vazia'] || (isset($by['Sub'], $by['Vazia'], $by['Fechada']) && count($by) === 3), json_encode(array_keys($by)));
+    check($by['Sub']['path'] === 'Arv/Sub' && $by['Sub']['hasChildren'] === true && $by['Vazia']['hasChildren'] === false, 'filhas');
+    check(isset($byName($tree($user))['Cães & gatos']), 'nome com & e acento');
+});
+
+test('pasta fechada: vem com cadeado e sem filhas; pedir o conteúdo dela é 403 (não vaza o que há dentro)', function () use ($outro, $rh2, $admin, $tree, $byName, $ajax) {
+    $by = $byName($tree($outro, 'Arv'));
+    check($by['Fechada']['locked'] === true && $by['Fechada']['hasChildren'] === false, 'outro: ' . json_encode($by['Fechada']));
+    check($by['Sub']['locked'] === false, 'Sub continua aberta');
+    $r = $outro->get('/index.php?action=tree&dir=Arv/Fechada', $ajax);
+    check($r->status === 403 && strpos($r->body, 'Interna') === false && json_decode($r->body, true)['status'] === 'error', 'dir fechada: ' . $r->status . ' ' . $r->body);
+    $r = $outro->get('/index.php?action=tree&dir=Arv/Fechada/Interna', $ajax);
+    check($r->status === 403 && strpos($r->body, 'Interna') === false, 'filha da fechada');
+    $r = $outro->get('/index.php?action=tree&dir=Arv/Fechada');
+    check($r->status === 403 && strpos($r->body, 'Interna') === false, 'sem cabeçalho ajax também é 403');
+    check($byName($tree($rh2, 'Arv'))['Fechada']['locked'] === false && $byName($tree($rh2, 'Arv/Fechada'))['Interna']['path'] === 'Arv/Fechada/Interna', 'rh2 deveria entrar');
+    check($byName($tree($admin, 'Arv'))['Fechada']['locked'] === false, 'admin nunca vê cadeado');
+});
+
+test('traversal em dir= cai na raiz; mode=trash só vale para admin (e vem vazio)', function () use ($user, $admin, $tree) {
+    foreach (['..', '../..', 'Docs/../..', '..%2f', '/etc', 'Docs%00'] as $d) {
+        $r = $user->get('/index.php?action=tree&dir=' . $d, ['X-Requested-With: XMLHttpRequest']);
+        $j = json_decode($r->body, true);
+        check($r->status === 200 && $j['dir'] === '' && strpos($r->body, 'segredo') === false, "$d => {$r->status} {$r->body}");
+    }
+    check($tree($admin, '', '&mode=trash')['children'] === [], 'lixeira não tem árvore');
+    check(count($tree($user, '', '&mode=trash')['children']) > 0, 'usuário comum ignora mode=trash');
+});
+
+test('página: árvore com a cadeia da pasta atual aberta, pasta atual marcada, cadeado sem link; lixeira sem árvore', function () use ($outro, $admin) {
+    $b = $outro->get('/index.php?dir=' . rawurlencode('Arv/Sub'))->body;
+    check(strpos($b, 'role="tree"') !== false && strpos($b, 'data-tree-url') !== false && strpos($b, 'assets/js/tree.js') !== false, 'estrutura da árvore');
+    check(strpos($b, 'data-path="Arv"') !== false && strpos($b, 'data-path="Arv/Sub/Fundo"') !== false, 'cadeia aberta até as filhas da atual');
+    check(preg_match('/aria-current="page"[^>]*>.*?Sub/s', $b) === 1, 'pasta atual não está marcada');
+    check(strpos($b, 'tree-locked') !== false && strpos($b, 'data-path="Arv/Fechada/Interna"') === false, 'fechada deveria ser só cadeado, sem filhas');
+    check(strpos($b, 'data-path="Arv/Fechada"') !== false && preg_match('/data-path="Arv\/Fechada"[^>]*aria-disabled="true"|aria-disabled="true"[^>]*data-path="Arv\/Fechada"/', $b) === 1, 'aria-disabled na fechada');
+    $t = $admin->get('/index.php?mode=trash')->body;
+    check(strpos($t, 'data-tree') === false && strpos($t, 'tree.js') === false, 'lixeira não deveria ter árvore');
+});
+
+test('página: nomes de pasta saem escapados na árvore', function () use ($user) {
+    $b = $user->get('/')->body;
+    check(strpos($b, 'Cães &amp; gatos') !== false && strpos($b, 'Cães & gatos</a>') === false, 'nome não escapado');
+});
+
+// ===================================================================================
+suite('Mover itens entre pastas (action=move)');
+// ===================================================================================
+
+foreach (['Origem/Pasta1', 'Origem/Pasta2/Interna', 'Origem/Pasta2x', 'Destino/Fundo'] as $d) { mkdir("$storage/uploads/Mv/$d", 0775, true); }
+$admin->upload('/index.php?dir=Mv/Origem', ['f1.txt' => 'ORIGEM-F1', 'f2.txt' => 'ORIGEM-F2']);
+$admin->upload('/index.php?dir=Mv/Origem/Pasta1', ['inner.txt' => 'DENTRO']);
+$admin->upload('/index.php?dir=Mv/Destino', ['f1.txt' => 'DESTINO-F1']);
+file_put_contents("$storage/uploads/Mv/Origem/d'ap&mp.txt", 'NOME-ESQUISITO');
+$mv = function (Client $c, string $dir, array $items, string $dest, bool $csrf = true) {
+    return $c->post('/index.php?dir=' . rawurlencode($dir), ['action' => 'move', 'items' => $items, 'dest' => $dest], $csrf);
+};
+$dl = function (Client $c, string $dir, string $file) { return $c->get('/index.php?action=download&dir=' . rawurlencode($dir) . '&file=' . rawurlencode($file)); };
+
+test('mover arquivo: sai da origem, chega ao destino; nome ocupado ganha (1) sem sobrescrever; autoria acompanha', function () use ($admin, $mv, $storage) {
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['f1.txt', 'f2.txt'], 'Mv/Destino'));
+    check($r->flash() === '2 itens movidos.', 'flash: ' . $r->flash());
+    check(!file_exists("$storage/uploads/Mv/Origem/f1.txt") && !file_exists("$storage/uploads/Mv/Origem/f2.txt"), 'ficou na origem');
+    check(file_get_contents("$storage/uploads/Mv/Destino/f1.txt") === 'DESTINO-F1', 'sobrescreveu o arquivo do destino');
+    check(file_get_contents("$storage/uploads/Mv/Destino/f1 (1).txt") === 'ORIGEM-F1' && file_get_contents("$storage/uploads/Mv/Destino/f2.txt") === 'ORIGEM-F2', 'conteúdo movido');
+    check(dbq("SELECT 1 FROM files_meta WHERE filepath = 'Mv/Destino/f2.txt'") && !dbq("SELECT 1 FROM files_meta WHERE filepath = 'Mv/Origem/f2.txt'"), 'metadado não acompanhou');
+    check((int) dbq("SELECT COUNT(*) n FROM logs WHERE acao = 'MOVER'")[0]['n'] >= 2, 'MOVER não registrado');
+});
+
+test('sem colisão o nome é mantido exatamente (aspas, &) e o conteúdo vai inteiro', function () use ($admin, $mv, $storage) {
+    $admin->post('/index.php?dir=Mv/Destino', ['action' => 'mkdir', 'nome_pasta' => 'Esq']);
+    $mv($admin, 'Mv/Origem', ["d'ap&mp.txt"], 'Mv/Destino/Esq');
+    check(file_get_contents("$storage/uploads/Mv/Destino/Esq/d'ap&mp.txt") === 'NOME-ESQUISITO', 'nome alterado ao mover');
+});
+
+test('mover pasta leva o conteúdo, a autoria dos filhos e a regra de acesso; quem estava barrado continua barrado', function () use ($admin, $mv, $outro, $rh2, $storage, $uid, $dl) {
+    $admin->post('/index.php?dir=Mv/Origem', ['action' => 'set_folder_access', 'folder' => 'Pasta1', 'mode' => 'restrict', 'users' => [$uid('rh2')]]);
+    check($outro->get('/index.php?dir=Mv/Origem/Pasta1')->status === 302, 'pré-condição: outro barrado');
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta1'], 'Mv/Destino'));
+    check($r->flash() === '1 item movido.' && !is_dir("$storage/uploads/Mv/Origem/Pasta1") && is_file("$storage/uploads/Mv/Destino/Pasta1/inner.txt"), 'pasta: ' . $r->flash());
+    check(dbq("SELECT 1 FROM files_meta WHERE filepath = 'Mv/Destino/Pasta1/inner.txt'") && !dbq("SELECT 1 FROM files_meta WHERE filepath LIKE 'Mv/Origem/Pasta1%'"), 'autoria dos filhos');
+    check(dbq("SELECT 1 FROM folder_rules WHERE path = 'Mv/Destino/Pasta1'") && !dbq("SELECT 1 FROM folder_rules WHERE path = 'Mv/Origem/Pasta1'"), 'regra não acompanhou');
+    check($outro->get('/index.php?dir=Mv/Destino/Pasta1')->status === 302 && $dl($outro, 'Mv/Destino/Pasta1', 'inner.txt')->status === 403, 'a pasta movida ficou pública');
+    check($dl($rh2, 'Mv/Destino/Pasta1', 'inner.txt')->body === 'DENTRO', 'rh2 deveria continuar entrando');
+});
+
+test('mover para dentro de pasta restrita aplica a restrição ao que chegou', function () use ($admin, $mv, $outro, $storage, $dl) {
+    $admin->upload('/index.php?dir=Mv/Origem', ['sigilo.txt' => 'SIGILO']);
+    check($dl($outro, 'Mv/Origem', 'sigilo.txt')->body === 'SIGILO', 'pré-condição: aberto');
+    $mv($admin, 'Mv/Origem', ['sigilo.txt'], 'Mv/Destino/Pasta1');
+    check($dl($outro, 'Mv/Destino/Pasta1', 'sigilo.txt')->status === 403, 'arquivo movido para pasta restrita continuou acessível');
+});
+
+test('lote misto: o que não pode ir é ignorado e contado; o resto vai', function () use ($admin, $mv, $storage) {
+    file_put_contents("$storage/uploads/Mv/Origem/.htaccess", 'Deny from all');
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta2x', 'nao-existe.txt', '.htaccess', '..', '../x'], 'Mv/Destino/Fundo'));
+    check($r->flash() === '1 item movido, 3 ignorado(s).', 'flash: ' . $r->flash());
+    check(is_dir("$storage/uploads/Mv/Destino/Fundo/Pasta2x") && is_file("$storage/uploads/Mv/Origem/.htaccess") && !file_exists("$storage/uploads/Mv/Destino/Fundo/.htaccess"), 'oculto não pode sair do lugar');
+});
+
+test('destino inválido não move nada: inexistente, traversal, arquivo, pasta atual, lixeira', function () use ($admin, $mv, $storage) {
+    file_put_contents("$storage/uploads/Mv/Origem/fica.txt", 'FICA');
+    foreach (['nao-existe', 'Mv/nao-existe', '../..', 'Mv/../..', 'logo.png', '.lixeira', 'Mv//Destino', '/etc'] as $bad) {
+        $r = $admin->follow($mv($admin, 'Mv/Origem', ['fica.txt'], $bad));
+        check($r->flash() === 'Pasta de destino inválida.', json_encode($bad) . ' => ' . $r->flash());
+        check(is_file("$storage/uploads/Mv/Origem/fica.txt"), "$bad moveu mesmo assim");
+    }
+    check($admin->follow($mv($admin, 'Mv/Origem', ['fica.txt'], 'Mv/Origem'))->flash() === 'Os itens já estão nessa pasta.', 'mesma pasta');
+    check($admin->follow($mv($admin, 'Mv/Origem', [], 'Mv/Destino'))->flash() === 'Nada selecionado.', 'sem itens');
+    $r = $admin->post('/index.php?dir=Mv/Origem', ['action' => 'move', 'items' => 'fica.txt', 'dest' => 'Mv/Destino']);
+    check($admin->follow($r)->flash() === 'Nada selecionado.' && is_file("$storage/uploads/Mv/Origem/fica.txt"), 'items como texto simples');
+});
+
+test('pasta não vai para dentro de si mesma nem de descendente; prefixo parecido (Pasta2 x Pasta2x) é outra pasta', function () use ($admin, $mv, $storage) {
+    foreach (['Mv/Origem/Pasta2', 'Mv/Origem/Pasta2/Interna'] as $bad) {
+        $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta2'], $bad));
+        check($r->flash() === '0 itens movidos, 1 ignorado(s).', "$bad => " . $r->flash());
+        check(is_dir("$storage/uploads/Mv/Origem/Pasta2/Interna"), "$bad: a pasta mudou de lugar");
+    }
+    mkdir("$storage/uploads/Mv/Origem/Pasta2x2", 0775);
+    $r = $admin->follow($mv($admin, 'Mv/Origem', ['Pasta2'], 'Mv/Destino'));
+    check($r->flash() === '1 item movido.' && is_dir("$storage/uploads/Mv/Destino/Pasta2/Interna"), 'Pasta2 para fora: ' . $r->flash());
+    $admin->follow($mv($admin, 'Mv/Destino', ['Pasta2'], 'Mv/Destino/Fundo/Pasta2x'));
+    check(is_dir("$storage/uploads/Mv/Destino/Fundo/Pasta2x/Pasta2/Interna"), 'prefixo parecido deveria aceitar');
+});
+
+test('mover para o início (raiz) e dentro da raiz para uma pasta', function () use ($admin, $mv, $storage) {
+    $admin->upload('/index.php?dir=Mv/Destino/Esq', ['sobe.txt' => 'SOBE']);
+    $r = $admin->follow($mv($admin, 'Mv/Destino/Esq', ['sobe.txt'], ''));
+    check($r->flash() === '1 item movido.' && file_get_contents("$storage/uploads/sobe.txt") === 'SOBE', 'raiz: ' . $r->flash());
+    $admin->follow($mv($admin, '', ['sobe.txt'], 'Docs'));
+    check(is_file("$storage/uploads/Docs/sobe.txt") && !file_exists("$storage/uploads/sobe.txt"), 'raiz -> Docs');
+});
+
+test('usuário comum não move; sem CSRF = 419; na lixeira não move; mover não escapa da raiz', function () use ($user, $admin, $mv, $storage) {
+    file_put_contents("$storage/uploads/Mv/Origem/alvo.txt", 'ALVO');
+    $r = $user->follow($mv($user, 'Mv/Origem', ['alvo.txt'], 'Mv/Destino'));
+    check($r->flash() === 'Acesso negado.' && is_file("$storage/uploads/Mv/Origem/alvo.txt"), 'usuário comum moveu: ' . $r->flash());
+    check($mv($admin, 'Mv/Origem', ['alvo.txt'], 'Mv/Destino', false)->status === 419 && is_file("$storage/uploads/Mv/Origem/alvo.txt"), 'sem CSRF');
+    file_put_contents("$storage/trash/preso.txt", 'LIXO');
+    $r = $admin->post('/index.php?mode=trash', ['action' => 'move', 'items' => ['preso.txt'], 'dest' => 'Mv/Destino']);
+    check(is_file("$storage/trash/preso.txt") && !file_exists("$storage/uploads/Mv/Destino/preso.txt"), 'moveu da lixeira');
+    @unlink("$storage/trash/preso.txt");
+    $r = $admin->post('/index.php?dir=Mv/Origem', ['action' => 'move', 'items' => ['../../segredo.txt', '..\\..\\segredo.txt'], 'dest' => 'Mv/Destino']);
+    check(!file_exists("$storage/uploads/Mv/Destino/segredo.txt"), 'traversal em items[]');
+});
+
+test('página do admin tem botões de mover; a do usuário comum, não', function () use ($admin, $user) {
+    $b = $admin->get('/index.php?dir=Mv/Destino')->body;
+    check(strpos($b, 'data-move="f2.txt"') !== false && strpos($b, 'id="btnMove"') !== false && strpos($b, 'id="moveModal"') !== false && strpos($b, 'assets/js/move.js') !== false, 'admin sem mover');
+    check(strpos($b, 'draggable="true"') !== false && strpos($b, 'data-drop-dir="Mv"') !== false && strpos($b, 'data-current-dir="Mv/Destino"') !== false, 'sem arrastar e soltar');
+    $u = $user->get('/index.php?dir=Mv/Destino')->body;
+    check(strpos($u, 'data-move') === false && strpos($u, 'moveModal') === false && strpos($u, 'draggable') === false && strpos($u, 'move.js') === false, 'usuário comum viu o mover');
 });
 
 // ===================================================================================
