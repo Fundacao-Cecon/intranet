@@ -764,6 +764,21 @@ test('excluir definitivamente e esvaziar a lixeira apagam as regras', function (
     check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '.lixeira%'"), 'sobrou regra após esvaziar');
 });
 
+test('renomear pasta com acento leva a regra da subpasta junto (UTF-8: bytes ≠ caracteres no SQLite)', function () use ($admin, $outro, $rh1, $storage) {
+    mkdir("$storage/uploads/Relatórios/Sub", 0775, true);
+    file_put_contents("$storage/uploads/Relatórios/Sub/seg.txt", 'SEGREDO-ACENTO');
+    $admin->post('/index.php?dir=' . rawurlencode('Relatórios'), ['action' => 'set_folder_access', 'folder' => 'Sub', 'mode' => 'restrict']);
+    check($rh1->get('/index.php?action=download&dir=' . rawurlencode('Relatórios/Sub') . '&file=seg.txt')->status === 403, 'regra não valeu antes do rename');
+    $admin->post('/', ['action' => 'rename', 'old_name' => 'Relatórios', 'new_name' => 'Ação']);
+    check(is_dir("$storage/uploads/Ação/Sub"), 'renomear falhou');
+    $r = $rh1->get('/index.php?action=download&dir=' . rawurlencode('Ação/Sub') . '&file=seg.txt');
+    check(strpos($r->body, 'SEGREDO-ACENTO') === false && $r->status === 403, 'a restrição da subpasta se perdeu após renomear (' . $r->status . ')');
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path = ?", ['Ação/Sub'])) === 1, 'caminho da regra: ' . json_encode(array_column(dbq('SELECT path FROM folder_rules'), 'path'), JSON_UNESCAPED_UNICODE));
+    $admin->post('/', ['action' => 'trash', 'item' => 'Ação']);
+    $admin->post('/index.php?mode=trash', ['action' => 'purge', 'item' => 'Ação']);
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '%o%Sub'"), 'sobrou regra após purge');
+});
+
 test('"só admins" (restringir sem marcar ninguém) e voltar a herdar', function () use ($admin, $rh1) {
     $admin->post('/', ['action' => 'set_folder_access', 'folder' => 'Aberta', 'mode' => 'restrict']);
     check($rh1->get('/index.php?dir=Aberta')->status === 302, 'só admins deixou usuário entrar');

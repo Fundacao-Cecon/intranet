@@ -7,16 +7,16 @@ Plano de testes da Intranet (PHP 7.4+/SQLite, sem framework): o que existe, o qu
 | Camada | Suíte | Testes | O que prova |
 |---|---|--:|---|
 | Login com sessão real | `tests/run.php` (`login`) | 18 | Expiração, teto absoluto, tempo de resposta, logs, bloqueio, cookie, tela de login |
-| Unitário | `tests/unit_test.php` (`unit`) | 41 | `FileStorage`, `FileMeta`, `Logger`, `Auth`, `Csrf`, fronteiras do limite de tentativas |
-| Integração HTTP | `tests/http_test.php` (`http`) | 49 | Sistema **no ar**: login, listagem, download/Range, ZIP, permissões, upload, lixeira, usuários, desempenho, 4 configurações de servidor (primeiro uso, HTTPS forçado, erro 500, `upload_max_filesize`) |
-| Concorrência | `tests/concurrency_test.php` (`conc`) | 4 | Processos paralelos: nomes no upload, SQLite com 8 escritores, dois admins se excluindo |
+| Unitário | `tests/unit_test.php` (`unit`) | 62 | `FileStorage`, `FileMeta`, `FolderAccess`, `Groups`, `Logger`, `Auth`, `Csrf`, fronteiras do limite de tentativas |
+| Integração HTTP | `tests/http_test.php` (`http`) | 82 | Sistema **no ar**: login, listagem, download/Range, ZIP, permissões por perfil e **por pasta** (ADR 0006), árvore, mover, upload, lixeira, usuários, desempenho, 4 configurações de servidor (primeiro uso, HTTPS forçado, erro 500, `upload_max_filesize`) |
+| Concorrência | `tests/concurrency_test.php` (`conc`) | 6 | Processos paralelos: nomes no upload, SQLite com 8 escritores, dois admins se excluindo |
 | Backup/restauração | `tests/backup_test.php` (`backup`) | 10 | Backup **com o sistema ligado**, manifest SHA-256, adulteração, restauração, sistema sobe na pasta restaurada |
 | Servidor real (script) | `tests/smoke_test.php` (`smoke`) | 4 | Prova que `bin/smoke.php` aprova docroot certo e **reprova docroot errado** |
-| JavaScript + acessibilidade | `tests/js_test.php` (`js`) | 53 | `app.js`/`theme.js`/`login.js` em jsdom, auditoria axe (WCAG 2.1 A/AA) de 6 telas, contraste 4,5:1 da paleta (claro/escuro) |
-| **Total automatizado** | `php tests/all.php` | **179** | ~95 s; verde em **PHP 7.4 e 8.3** |
+| JavaScript + acessibilidade | `tests/js_test.php` (`js`) | 75 | `app.js`/`theme.js`/`login.js` em jsdom (inclui árvore, mover, arrastar e acesso por pasta), auditoria axe (WCAG 2.1 A/AA) de 6 telas, contraste 4,5:1 da paleta (claro/escuro) |
+| **Total automatizado** | `php tests/all.php` | **257** | ~75 s; verde em **PHP 7.4 e 8.3** |
 | Escritos antes do código | `tests/pending_phase2_test.php` (`p2`) | 7 `todo` | Fase 2 da ADR-0005; aparecem como "pend" e não reprovam |
 | Opt-in | `tests/large_test.php` (`large`) | 4 | Arquivo grande com `memory_limit=64M` no servidor |
-| Medição | `tests/coverage.php` | — | **96,0 %** das linhas de `src/` (1.004 de 1.046), com piso por arquivo crítico |
+| Medição | `tests/coverage.php` | — | **96,0 %** das linhas de `src/` (1.399 de 1.457), com piso por arquivo crítico |
 | Estático | `phpstan.neon` | — | PHPStan **nível 5 sem erros** |
 
 Comandos: `php tests/all.php` · `php tests/all.php unit http` · `php tests/all.php large` · `php tests/all.php --list` · `php -d extension=pcov tests/coverage.php --min=90 --lines` · `php phpstan.phar analyse`. Detalhes de instalação em [operacao.md](operacao.md).
@@ -43,7 +43,7 @@ Princípio: a confiança vem sobretudo da **camada HTTP** (o sistema é fino e o
 |---|---|
 | Cobertura de linhas não medida | ✅ PCOV instalado; `tests/coverage.php` mescla processos (inclusive o servidor HTTP e os CLI). **96,0 %** total; pisos: `FileStorage`/`FileMeta`/`Csrf`/`Auth`/`Application` ≥ 95 %, `FilesController`/`TrashController` ≥ 90 %, `Backup` ≥ 85 %. O que sobra descoberto são ramos de falha do sistema operacional (`rename()`/`mkdir()` falhando) e linhas `}` |
 | Sem CI | ✅ `.github/workflows/tests.yml`: PHP 7.4/8.1/8.3/8.4 (Ubuntu) + 8.3 (Windows), cobertura (meta 90 %), PHPStan, job manual de arquivo grande. **Não foi executado no GitHub** (só validado como YAML e reproduzido localmente) |
-| PHP 7.4 nunca executado | ✅ PHP 7.4.33 instalado em `D:\php74`; as 179 verificações passam. Achado: `proc_open` com string quebra no `cmd.exe` do 7.4 (corrigido, usa array) |
+| PHP 7.4 nunca executado | ✅ PHP 7.4.33 instalado em `D:\php74`; as 182 verificações PHP passam. Achado: `proc_open` com string quebra no `cmd.exe` do 7.4 (corrigido, usa array) |
 | Servidor real (Apache/IIS) | 🟡 `bin/smoke.php <url>`: 40+ verificações só por HTTP (docroot, 20 caminhos internos, cabeçalhos, cookie, HSTS, `display_errors`, login opcional). Testado contra instalação certa e **errada**. **Falta rodar no servidor de verdade** |
 | JavaScript só à mão | ✅ jsdom sobre o HTML real de cada tela. Playwright (navegador real automatizado) **não foi instalado** (~200 MB); o roteiro manual de 23/10 continua válido |
 | Upload grande / Range | 🟡 `large_test.php`: 40 MB com servidor a 64 MB de memória: tamanho e SHA-256 idênticos, Range correto, download a ~300 MB/s. O servidor embutido do PHP no Windows recebe uploads a ~1 MB/s (300 MB passa de 15 min), então **medir em Apache/IIS** |
@@ -83,6 +83,9 @@ Meta: **mutation score ≥ 90 %** nas regras de segurança.
 | 13 | **Corrida no limite de tentativas**: 30 tentativas simultâneas gravam 10 falhas em vez de 5 | `p2` (todo) | **aberto**: Fase 2 da ADR-0005 (`BEGIN IMMEDIATE`) |
 | 14 | Toast de aviso sem estilo próprio | navegador | aberto (cosmético) |
 | 15 | `rename()` e restaurar da lixeira ainda têm janela de corrida minúscula (checar e mover) | análise | aberto, risco baixo; só o upload tinha janela longa |
+| 16 | **Regra de acesso perdida ao renomear/apagar pasta no Linux**: o `LIKE` do SQLite ignora a caixa, então renomear `A` levava a regra de `a/sub` para `Z/sub` (a subpasta ficava aberta a todos). Idem na autoria (`files_meta`) | exploração na bateria `testing-strategy` (sonda em `FolderAccess`) | **corrigido**: prefixo comparado com `substr(...) = ?` (binário). Testes: `unit` (2) |
+| 17 | **Renomear pasta com acento corrompia os filhos** (`Relatórios/a.txt` → `Novoa.txt`): `strlen()` do PHP conta bytes, `substr()` do SQLite conta caracteres. Perdia autoria e **regras de acesso das subpastas** (restrição some). Existia desde antes da ADR 0006 | mesma sonda, com nome em português | **corrigido**: `length(?)` do próprio SQLite. Testes: `unit` (2) e `http` (1, ponta a ponta: subpasta restrita continua 403 após renomear) |
+| 18 | Tamanho mínimo da senha conta **bytes** (`strlen`, `Auth.php`): 4 letras acentuadas passam de 8 | leitura | aberto, baixo (`mb_strlen` quando houver `mbstring`); entra na Fase 2 da ADR-0005 |
 
 ## 6. Lacunas e próximos passos (o que sobrou)
 

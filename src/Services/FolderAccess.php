@@ -167,11 +167,14 @@ final class FolderAccess
         }
         Database::transaction($this->db, function () use ($old, $new) {
             $this->removedNow($new); // sobra de um item antigo com esse nome não pode se agarrar ao novo
-            $like = self::escapeLike($old) . '/%';
+            // substr() compara byte a byte; LIKE ignora a caixa (ASCII) e misturaria "A/" com "a/" no Linux,
+            // levando a regra de "a/sub" junto com a de "A" (a restrição some). length() do SQLite conta
+            // caracteres, como o substr() dele; strlen() do PHP conta bytes e quebraria "Relatórios/...".
+            $prefix = $old . '/';
             foreach (['folder_rules', 'folder_rule_users', 'folder_rule_groups'] as $table) {
                 $this->db->prepare("UPDATE $table SET path = ? WHERE path = ?")->execute([$new, $old]);
-                $this->db->prepare("UPDATE $table SET path = ? || substr(path, ?) WHERE path LIKE ? ESCAPE '\\'")
-                    ->execute([$new, strlen($old) + 1, $like]);
+                $this->db->prepare("UPDATE $table SET path = ? || substr(path, length(?)) WHERE substr(path, 1, length(?)) = ?")
+                    ->execute([$new, $prefix, $prefix, $prefix]);
             }
         });
     }
@@ -218,14 +221,9 @@ final class FolderAccess
 
     private function removedNow(string $path): void
     {
-        $like = self::escapeLike($path) . '/%';
+        $prefix = $path . '/';
         foreach (['folder_rules', 'folder_rule_users', 'folder_rule_groups'] as $table) {
-            $this->db->prepare("DELETE FROM $table WHERE path = ? OR path LIKE ? ESCAPE '\\'")->execute([$path, $like]);
+            $this->db->prepare("DELETE FROM $table WHERE path = ? OR substr(path, 1, length(?)) = ?")->execute([$path, $prefix, $prefix]);
         }
-    }
-
-    private static function escapeLike(string $s): string
-    {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
     }
 }
