@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Database;
 use PDO;
 
 /**
@@ -91,19 +92,7 @@ final class FolderAccess
      */
     public function rule(string $path): ?array
     {
-        $stmt = $this->db->prepare("SELECT 1 FROM folder_rules WHERE path = ?");
-        $stmt->execute([$path]);
-        if (!$stmt->fetchColumn()) {
-            return null;
-        }
-        $u = $this->db->prepare("SELECT user_id FROM folder_rule_users WHERE path = ? ORDER BY user_id");
-        $u->execute([$path]);
-        $g = $this->db->prepare("SELECT group_id FROM folder_rule_groups WHERE path = ? ORDER BY group_id");
-        $g->execute([$path]);
-        return [
-            'users'  => array_map('intval', $u->fetchAll(PDO::FETCH_COLUMN)),
-            'groups' => array_map('intval', $g->fetchAll(PDO::FETCH_COLUMN)),
-        ];
+        return $this->rules([$path])[$path] ?? null;
     }
 
     /**
@@ -119,11 +108,12 @@ final class FolderAccess
             $marks = implode(',', array_fill(0, count($chunk), '?'));
             $stmt = $this->db->prepare("SELECT path FROM folder_rules WHERE path IN ($marks)");
             $stmt->execute($chunk);
-            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $p) {
-                $out[$p] = ['users' => [], 'groups' => []];
+            $found = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!$found) {
+                continue; // nenhuma regra neste bloco: poupa as outras duas consultas
             }
-            if (!$out) {
-                continue;
+            foreach ($found as $p) {
+                $out[$p] = ['users' => [], 'groups' => []];
             }
             foreach (['users' => ['folder_rule_users', 'user_id'], 'groups' => ['folder_rule_groups', 'group_id']] as $key => [$table, $col]) {
                 $s = $this->db->prepare("SELECT path, $col FROM $table WHERE path IN ($marks)");
@@ -146,7 +136,7 @@ final class FolderAccess
      */
     public function setRule(string $path, array $userIds, array $groupIds): void
     {
-        $this->transaction(function () use ($path, $userIds, $groupIds) {
+        Database::transaction($this->db, function () use ($path, $userIds, $groupIds) {
             $this->deleteRule($path);
             $this->db->prepare("INSERT INTO folder_rules (path) VALUES (?)")->execute([$path]);
 
@@ -164,7 +154,7 @@ final class FolderAccess
     /** Volta a pasta a herdar (apaga só a regra dela, não a dos filhos). */
     public function clearRule(string $path): void
     {
-        $this->transaction(function () use ($path) {
+        Database::transaction($this->db, function () use ($path) {
             $this->deleteRule($path);
         });
     }
@@ -175,13 +165,16 @@ final class FolderAccess
         if ($old === $new) {
             return;
         }
-        $this->transaction(function () use ($old, $new) {
+        Database::transaction($this->db, function () use ($old, $new) {
             $this->removedNow($new); // sobra de um item antigo com esse nome não pode se agarrar ao novo
-            $like = self::escapeLike($old) . '/%';
+            // substr() compara byte a byte; LIKE ignora a caixa (ASCII) e misturaria "A/" com "a/" no Linux,
+            // levando a regra de "a/sub" junto com a de "A" (a restrição some). length() do SQLite conta
+            // caracteres, como o substr() dele; strlen() do PHP conta bytes e quebraria "Relatórios/...".
+            $prefix = $old . '/';
             foreach (['folder_rules', 'folder_rule_users', 'folder_rule_groups'] as $table) {
                 $this->db->prepare("UPDATE $table SET path = ? WHERE path = ?")->execute([$new, $old]);
-                $this->db->prepare("UPDATE $table SET path = ? || substr(path, ?) WHERE path LIKE ? ESCAPE '\\'")
-                    ->execute([$new, strlen($old) + 1, $like]);
+                $this->db->prepare("UPDATE $table SET path = ? || substr(path, length(?)) WHERE substr(path, 1, length(?)) = ?")
+                    ->execute([$new, $prefix, $prefix, $prefix]);
             }
         });
     }
@@ -189,7 +182,7 @@ final class FolderAccess
     /** Apaga a regra da pasta e de tudo dentro dela (exclusão definitiva). */
     public function removed(string $path): void
     {
-        $this->transaction(function () use ($path) {
+        Database::transaction($this->db, function () use ($path) {
             $this->removedNow($path);
         });
     }
@@ -228,29 +221,9 @@ final class FolderAccess
 
     private function removedNow(string $path): void
     {
-        $like = self::escapeLike($path) . '/%';
+        $prefix = $path . '/';
         foreach (['folder_rules', 'folder_rule_users', 'folder_rule_groups'] as $table) {
-            $this->db->prepare("DELETE FROM $table WHERE path = ? OR path LIKE ? ESCAPE '\\'")->execute([$path, $like]);
+            $this->db->prepare("DELETE FROM $table WHERE path = ? OR substr(path, 1, length(?)) = ?")->execute([$path, $prefix, $prefix]);
         }
-    }
-
-    /** Trava de escrita desde o início: dois admins editando regras não se atropelam. */
-    private function transaction(callable $fn): void
-    {
-        $this->db->exec('BEGIN IMMEDIATE');
-        try {
-            $fn();
-            $this->db->exec('COMMIT');
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->exec('ROLLBACK');
-            }
-            throw $e;
-        }
-    }
-
-    private static function escapeLike(string $s): string
-    {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
     }
 }

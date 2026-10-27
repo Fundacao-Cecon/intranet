@@ -80,6 +80,17 @@ test('resolve: link simbólico que aponta para fora da raiz é recusado', functi
     @unlink($link);
 });
 
+test('resolve: a pasta volta com a caixa real do disco (sistemas que ignoram a caixa não contornam regras por caixa, ponto final ou nome curto)', function () use ($fs, $tmp) {
+    mkdir("$tmp/uploads/CaixaReal/Fundo", 0775, true);
+    foreach (['caixareal', 'CAIXAREAL', 'CaixaReal.', 'caixareal/FUNDO'] as $typed) {
+        if (!is_dir("$tmp/uploads/$typed")) { continue; }   // sistema que diferencia a caixa: o nome errado nem resolve
+        [, $clean] = $fs->resolve('files', $typed);
+        $expect = stripos($typed, '/') !== false ? 'CaixaReal/Fundo' : 'CaixaReal';
+        check($clean === $expect, json_encode($typed) . ' => ' . json_encode($clean));
+    }
+    check($fs->resolve('files', 'CaixaReal/Fundo')[1] === 'CaixaReal/Fundo', 'caixa certa continua igual');
+});
+
 test('resolve: lixeira e arquivos são raízes independentes', function () use ($fs) {
     check($fs->resolve('trash', 'Docs')[0] === $fs->root('trash'), 'Docs não existe na lixeira');
     check($fs->root('files') !== $fs->root('trash'), 'raízes iguais');
@@ -242,6 +253,31 @@ test('FileMeta: removed apaga o item e o conteúdo, não o vizinho de prefixo', 
     check(isset($r['PP'], $r['PP/r.txt']) && !isset($r['P']) && !isset($r['P/q.txt']), json_encode(array_keys($r)));
 });
 
+test('FileMeta: pastas que só diferem na caixa (Linux) são independentes — renomear/apagar "A" não toca "a"', function () use ($meta) {
+    foreach (['Cx', 'Cx/f.txt', 'cx', 'cx/g.txt'] as $p) { $meta->created($p, 'u'); }
+    $meta->renamed('Cx', 'Dx', 'e');
+    $r = $meta->lookup(['Cx', 'Cx/f.txt', 'Dx', 'Dx/f.txt', 'cx', 'cx/g.txt', 'Dx/g.txt']);
+    check(isset($r['cx'], $r['cx/g.txt']) && !isset($r['Dx/g.txt']), 'renomear "Cx" levou os filhos de "cx": ' . json_encode(array_keys($r)));
+    $meta->removed('Dx');
+    $meta->created('Dx', 'u'); $meta->created('Dx/h.txt', 'u');
+    $meta->removed('Dx');
+    check(isset($meta->lookup(['cx/g.txt'])['cx/g.txt']), 'apagar "Dx" apagou a autoria de "cx/g.txt"');
+    $meta->created('Ex', 'u'); $meta->created('Ex/i.txt', 'u'); $meta->created('ex/j.txt', 'u');
+    $meta->removed('Ex');
+    check(isset($meta->lookup(['ex/j.txt'])['ex/j.txt']), 'apagar "Ex" apagou "ex/j.txt"');
+});
+
+test('FileMeta: pasta com acento (UTF-8) — renomear e apagar mantêm os filhos certos', function () use ($meta) {
+    foreach (['Relatórios', 'Relatórios/a.txt', 'Relatórios/Sub/b.txt', 'Relatóriosx', 'Relatóriosx/c.txt'] as $p) { $meta->created($p, 'u'); }
+    $meta->renamed('Relatórios', 'Ação', 'e');
+    $r = $meta->lookup(['Ação', 'Ação/a.txt', 'Ação/Sub/b.txt', 'Açãoa.txt', 'Relatóriosx', 'Relatóriosx/c.txt']);
+    check(isset($r['Ação'], $r['Ação/a.txt'], $r['Ação/Sub/b.txt']) && !isset($r['Açãoa.txt']),
+          'filhos da pasta com acento ficaram com caminho errado: ' . json_encode(array_keys($r), JSON_UNESCAPED_UNICODE));
+    check(isset($r['Relatóriosx'], $r['Relatóriosx/c.txt']), 'pasta irmã foi afetada');
+    $meta->removed('Ação');
+    check(!$meta->lookup(['Ação/a.txt']) && isset($meta->lookup(['Relatóriosx/c.txt'])['Relatóriosx/c.txt']), 'apagar pasta com acento errou o alvo');
+});
+
 test('FileMeta: origem da lixeira — lembrar, ler, esquecer, limpar tudo', function () use ($meta) {
     $meta->rememberOrigin('.lixeira/a.txt', 'Docs/a.txt');
     $meta->rememberOrigin('.lixeira/b.txt', 'b.txt');
@@ -269,6 +305,31 @@ $ana = $mkUser('fa_ana');
 $bia = $mkUser('fa_bia');
 $cid = $mkUser('fa_cid');
 $adm = ['id' => 999999, 'role' => 'admin'];   // admin só na memória: um admin a mais no banco mudaria os testes de Auth
+
+test('regras: pastas que só diferem na caixa (Linux) não se misturam — renomear/apagar "A" não mexe na regra de "a/sub"', function () use ($acc) {
+    $acc->setRule('cs/sub', [], []);
+    $acc->setRule('CS/x', [], []);
+    $acc->renamed('CS', 'ZZ');
+    check($acc->rule('cs/sub') !== null, 'a regra de "cs/sub" foi levada junto com "CS" (restrição perdida)');
+    check($acc->rule('ZZ/sub') === null, 'a regra de "cs/sub" reapareceu em "ZZ/sub"');
+    check($acc->rule('ZZ/x') !== null, 'a regra de "CS/x" não acompanhou');
+    $acc->removed('ZZ');
+    check($acc->rule('cs/sub') !== null, 'apagar "ZZ" apagou a regra de "cs/sub"');
+    $acc->setRule('QQ/k', [], []);
+    $acc->removed('qq');
+    check($acc->rule('QQ/k') !== null, 'apagar "qq" apagou a regra de "QQ/k"');
+    $acc->removed('QQ'); $acc->removed('cs');
+});
+
+test('regras: pasta com acento (UTF-8) — renomear leva a regra das subpastas com o caminho certo', function () use ($acc) {
+    $acc->setRule('Relatórios', [], []);
+    $acc->setRule('Relatórios/Sub', [], []);
+    $acc->renamed('Relatórios', 'Ação');
+    check($acc->rule('Ação') !== null && $acc->rule('Ação/Sub') !== null && $acc->rule('AçãoSub') === null && $acc->rule('Relatórios/Sub') === null,
+          'regras da pasta com acento ficaram em caminho errado');
+    $acc->removed('Ação');
+    check($acc->rule('Ação') === null && $acc->rule('Ação/Sub') === null, 'apagar não levou a subpasta');
+});
 
 test('chain: ancestrais incluindo o próprio; barras sobrando e vazio', function () {
     check(FolderAccess::chain('a/b/c') === ['a', 'a/b', 'a/b/c'], 'a/b/c');

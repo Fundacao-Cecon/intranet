@@ -150,7 +150,10 @@
     var selectAll = document.getElementById('selectAll');
     if (selectAll) {
         selectAll.addEventListener('change', function () {
-            document.querySelectorAll('.item-check').forEach(function (cb) { cb.checked = selectAll.checked; });
+            document.querySelectorAll('.item-check').forEach(function (cb) {
+                var row = cb.closest('li');
+                if (!row || row.style.display !== 'none') cb.checked = selectAll.checked;   // a busca esconde linhas: "todos" é o que se vê
+            });
             updateZipButton();
         });
     }
