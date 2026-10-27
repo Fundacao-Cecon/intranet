@@ -104,6 +104,8 @@ SESSION_LIFETIME=480            # ociosidade de 8 h, como hoje (minutos)
 SESSION_SECURE_COOKIE=true
 SESSION_SAME_SITE=lax
 SANCTUM_STATEFUL_DOMAINS=intranet.exemplo.org.br
+SESSION_COOKIE=intranet_nova_session   # cookie próprio: não se mistura com o do legado
+BCRYPT_ROUNDS=10                     # igual ao custo do legado (o hash fictício do login tem custo 10)
 ```
 
 Pontos de atenção:

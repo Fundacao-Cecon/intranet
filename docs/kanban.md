@@ -13,10 +13,10 @@ Retrato do quadro em **26/10/2026** (Sprint 0 em andamento). O quadro vivo, com 
 
 | Coluna | Tarefas | Pontos |
 |---|--:|--:|
-| Backlog do produto | 64 | 243 |
+| Backlog do produto | 63 | 238 |
 | Backlog da sprint | 1 | 1 |
 | Em andamento | 0 | 0 |
-| Em revisão | 4 | 13 |
+| Em revisão | 5 | 18 |
 | Concluído | 4 | 9 |
 | **Total** | **73** | **266** |
 
@@ -44,8 +44,7 @@ Os pontos são hipótese de planejamento: recalibre com a velocidade real depois
 
 | Id | Sprint | Épico | Tarefa | Pts | Tipo e nota |
 |---|:-:|---|---|--:|---|
-| T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra |
-| T014 | S1 | E1 Fundação e login | Sanctum SPA: login, logout e me, com testes Pest | 5 | feature |
+| T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra — Pest 4.7 já instalado (T014); falta Larastan, Pint e o workflow do CI |
 | T015 | S1 | E1 Fundação e login | Auditoria: tabela logs e retenção de 180 dias | 2 | feature |
 | T016 | S1 | E1 Fundação e login | Sessão: ociosa de 8 h e teto absoluto de 12 h (middleware) | 3 | segurança |
 | T017 | S1 | E1 Fundação e login | Dependabot ou Renovate para api/ e web/ | 1 | infra |
@@ -127,6 +126,7 @@ _Vazia._
 | T005 | S0 | E0 Documentação e 0.2.1 | Ajustar ADRs 0003, 0004 e 0007, README, pendências e estratégia de testes | 2 | docs |
 | T011 | S1 | E1 Fundação e login | Criar api/ (Laravel 13) e web/ (Next 16, exportação estática) | 3 | infra — api/ Laravel 13.39 e web/ Next 16.4.3 (export estático, basePath /novo); build e testes padrão verdes |
 | T013 | S1 | E1 Fundação e login | Migration baseline que adota o esquema atual, com SQLite em WAL | 5 | feature — Baseline idempotente + WAL, busy_timeout 15 s, IMMEDIATE; 5 testes (esquema igual ao do legado, dados preservados, coexistência) |
+| T014 | S1 | E1 Fundação e login | Sanctum SPA: login, logout e me, com testes Pest | 5 | feature — Sanctum 4.3 por cookie + CSRF; /api/v1/auth/login, logout, me; 16 testes Pest; conferido por HTTP real |
 
 ## Concluído
 
