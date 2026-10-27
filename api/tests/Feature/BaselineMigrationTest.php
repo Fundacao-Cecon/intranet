@@ -19,14 +19,14 @@ class BaselineMigrationTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->dir = sys_get_temp_dir() . '/baseline-' . bin2hex(random_bytes(4));
+        $this->dir = sys_get_temp_dir().'/baseline-'.bin2hex(random_bytes(4));
         mkdir($this->dir);
     }
 
     protected function tearDown(): void
     {
         DB::purge('sqlite');
-        foreach (glob($this->dir . '/*') ?: [] as $f) {
+        foreach (glob($this->dir.'/*') ?: [] as $f) {
             @unlink($f);
         }
         @rmdir($this->dir);
@@ -36,12 +36,13 @@ class BaselineMigrationTest extends TestCase
     private function legacy(string $db, string $code = ''): string
     {
         $src = realpath(base_path('../src/Database.php'));
-        $script = $this->dir . '/legado-' . bin2hex(random_bytes(3)) . '.php';
-        file_put_contents($script, '<?php require ' . var_export($src, true) . ';'
-            . '$pdo = App\Database::connect(' . var_export($db, true) . ');' . $code);
+        $script = $this->dir.'/legado-'.bin2hex(random_bytes(3)).'.php';
+        file_put_contents($script, '<?php require '.var_export($src, true).';'
+            .'$pdo = App\Database::connect('.var_export($db, true).');'.$code);
         $out = [];
-        exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($script) . ' 2>&1', $out, $status);
+        exec(escapeshellarg(PHP_BINARY).' '.escapeshellarg($script).' 2>&1', $out, $status);
         $this->assertSame(0, $status, implode("\n", $out));
+
         return implode("\n", $out);
     }
 
@@ -55,17 +56,18 @@ class BaselineMigrationTest extends TestCase
     /** @return array<string,string> nome => SQL, sem as tabelas internas */
     private function schema(string $db): array
     {
-        $pdo = new PDO('sqlite:' . $db);
+        $pdo = new PDO('sqlite:'.$db);
         $rows = $pdo->query("SELECT name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name <> 'migrations' AND sql IS NOT NULL ORDER BY name")
             ->fetchAll(PDO::FETCH_KEY_PAIR);
+
         // O fim de linha do DDL depende do checkout (CRLF no Windows); não faz parte do esquema.
         return array_map(fn (string $sql) => str_replace("\r\n", "\n", $sql), $rows);
     }
 
     public function test_banco_novo_nasce_com_o_mesmo_esquema_do_legado(): void
     {
-        $legacy = $this->dir . '/legado.db';
-        $novo = $this->dir . '/novo.db';
+        $legacy = $this->dir.'/legado.db';
+        $novo = $this->dir.'/novo.db';
         $this->legacy($legacy);
         $this->migrate($novo);
 
@@ -76,7 +78,7 @@ class BaselineMigrationTest extends TestCase
 
     public function test_banco_existente_e_adotado_sem_perder_dados(): void
     {
-        $db = $this->dir . '/vivo.db';
+        $db = $this->dir.'/vivo.db';
         $this->legacy($db, <<<'PHP'
 $pdo->exec("INSERT INTO users (username, password, role) VALUES ('ana', 'hash', 'admin')");
 $pdo->exec("INSERT INTO files_meta (filepath, created_by) VALUES ('Relatórios/Sub/a.pdf', 'ana')");
@@ -88,7 +90,7 @@ PHP);
         $this->migrate($db); // idempotente
 
         $this->assertSame($antes, $this->schema($db));
-        $pdo = new PDO('sqlite:' . $db);
+        $pdo = new PDO('sqlite:'.$db);
         $this->assertSame('ana', $pdo->query('SELECT username FROM users')->fetchColumn());
         $this->assertSame('Relatórios/Sub/a.pdf', $pdo->query('SELECT filepath FROM files_meta')->fetchColumn());
         $this->assertSame('Relatórios', $pdo->query('SELECT path FROM folder_rules')->fetchColumn());
@@ -97,7 +99,7 @@ PHP);
 
     public function test_conexao_usa_wal_e_espera_15_segundos(): void
     {
-        $db = $this->dir . '/wal.db';
+        $db = $this->dir.'/wal.db';
         $this->migrate($db);
 
         $this->assertSame('wal', strtolower((string) DB::selectOne('PRAGMA journal_mode')->journal_mode));
@@ -106,7 +108,7 @@ PHP);
 
     public function test_legado_continua_lendo_e_gravando_depois_do_laravel(): void
     {
-        $db = $this->dir . '/convive.db';
+        $db = $this->dir.'/convive.db';
         $this->migrate($db);
         DB::table('users')->insert(['username' => 'bia', 'password' => 'h', 'role' => 'user']);
         DB::purge('sqlite');
@@ -122,7 +124,7 @@ PHP);
 
     public function test_rollback_nao_apaga_as_tabelas_do_legado(): void
     {
-        $db = $this->dir . '/rollback.db';
+        $db = $this->dir.'/rollback.db';
         $this->migrate($db);
         DB::table('users')->insert(['username' => 'caio', 'password' => 'h', 'role' => 'user']);
 

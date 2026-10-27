@@ -1,0 +1,17 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - app
+        - bootstrap
+        - config
+        - database
+        - routes
+        - tests
+    # Os testes em estilo Pest usam $this e test() resolvidos em tempo de execução, que a análise
+    # estática não enxerga; quem os valida é a própria execução. Testes em classe são analisados.
+    excludePaths:
+        - tests/Pest.php
+        - tests/Feature/Api

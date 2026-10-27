@@ -2,11 +2,13 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
+use Tests\TestCase;
 
 const SENHA = 'senha-de-teste';
 
 /** A SPA fala com a API a partir do mesmo domínio: Sanctum só liga a sessão para origens "stateful". */
-function spa(): Tests\TestCase
+function spa(): TestCase
 {
     // Cada chamada é uma requisição nova: o guard guardaria o usuário da anterior dentro do mesmo teste.
     app('auth')->forgetGuards();
@@ -14,7 +16,7 @@ function spa(): Tests\TestCase
     return test()->withHeaders(['Referer' => 'http://localhost', 'Accept' => 'application/json']);
 }
 
-function entrar(string $usuario = 'ana', string $senha = SENHA): Illuminate\Testing\TestResponse
+function entrar(string $usuario = 'ana', string $senha = SENHA): TestResponse
 {
     return spa()->postJson('/api/v1/auth/login', ['username' => $usuario, 'password' => $senha]);
 }

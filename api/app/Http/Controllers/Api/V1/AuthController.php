@@ -28,7 +28,7 @@ class AuthController extends Controller
     {
         // Origem fora de SANCTUM_STATEFUL_DOMAINS: a rota não ganha sessão. Recusa com clareza
         // em vez de estourar 500 mais adiante.
-        if (!$request->hasSession()) {
+        if (! $request->hasSession()) {
             return response()->json(['message' => 'Origem não autorizada para login.'], 403);
         }
 
@@ -40,8 +40,8 @@ class AuthController extends Controller
         /** @var User|null $user */
         $user = User::where('username', $data['username'])->first();
 
-        $ok = Hash::check($data['password'], $user?->password ?? self::DUMMY_HASH);
-        if (!$user || !$ok) {
+        $ok = Hash::check($data['password'], $user->password ?? self::DUMMY_HASH);
+        if (! $user || ! $ok) {
             return response()->json(['message' => 'Usuário ou senha incorretos.'], 422);
         }
 
