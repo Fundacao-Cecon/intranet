@@ -114,7 +114,7 @@ Pontos de **Fibonacci** (1, 2, 3, 5, 8, 13) medem tamanho relativo, não horas. 
 |---|---|---|--:|:-:|
 | **0** | E0 | Decisão registrada; plano e documentação publicados; correção de segurança commitada | 14 | 0.2.1 |
 | **1** | E1 | Alguém entra pela API a partir do Next, com CI verde e o esquema adotado sem quebrar o legado | 25 | — |
-| **2** | E1 | Os 7 cenários da ADR 0005 passam no Laravel e o login do Next está acessível | 27 | **0.3.0** |
+| **2** | E1 | Os 7 cenários da ADR 0005 passam no Laravel e o login do Next está acessível | 28 | **0.3.0** |
 | **3** | E2 | A API lista, baixa e compacta respeitando a regra de acesso por pasta | 27 | — |
 | **4** | E2 | Navegar, buscar e visualizar pelo Next com acessibilidade verde | 27 | **0.4.0** |
 | **5** | E3 | Upload, pastas, mover e lixeira na API, com concorrência testada | 28 | — |
@@ -123,7 +123,7 @@ Pontos de **Fibonacci** (1, 2, 3, 5, 8, 13) medem tamanho relativo, não horas. 
 | **8** | E4 | Troca do `/`, legado aposentado | 17 | **1.0.0** |
 | 9 a 12 | E5 | Mural de avisos → Versões → Link temporário → TOTP e PostgreSQL | 8 / 13 / 8 / 19 | 1.1.0 a 1.4.0 |
 
-Pontos totais: **265** (8 já concluídos hoje, de 14 da Sprint 0). Até o 1.0.0: Sprints 0 a 8, cerca de **17 semanas** (4 meses), já com folga e piloto. Isto corrige a estimativa de "2 a 3 meses" do roadmap, que era de uma pessoa sem folga nem cerimônias.
+Pontos totais: **266** (8 já concluídos hoje, de 14 da Sprint 0). Até o 1.0.0: Sprints 0 a 8, cerca de **17 semanas** (4 meses), já com folga e piloto. Isto corrige a estimativa de "2 a 3 meses" do roadmap, que era de uma pessoa sem folga nem cerimônias.
 
 ### Riscos por sprint
 

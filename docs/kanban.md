@@ -13,12 +13,12 @@ Retrato do quadro em **26/10/2026** (Sprint 0 em andamento). O quadro vivo, com 
 
 | Coluna | Tarefas | Pontos |
 |---|--:|--:|
-| Backlog do produto | 66 | 251 |
+| Backlog do produto | 58 | 227 |
 | Backlog da sprint | 1 | 1 |
 | Em andamento | 0 | 0 |
-| Em revisão | 2 | 5 |
-| Concluído | 3 | 8 |
-| **Total** | **72** | **265** |
+| Em revisão | 10 | 29 |
+| Concluído | 4 | 9 |
+| **Total** | **73** | **266** |
 
 ## Sprints
 
@@ -26,7 +26,7 @@ Retrato do quadro em **26/10/2026** (Sprint 0 em andamento). O quadro vivo, com 
 |---|---|:-:|--:|--:|
 | Sprint 0 — Documentação e 0.2.1 | Decisão registrada, plano e documentação publicados, correção de segurança commitada. | 0.2.1 | 6 | 14 |
 | Sprint 1 — Fundação | Alguém entra pela API a partir do Next, com CI verde e o esquema adotado sem quebrar o legado. | — | 9 | 25 |
-| Sprint 2 — Login endurecido | Os 7 cenários da ADR 0005 passam no Laravel e o login do Next está acessível. | 0.3.0 | 9 | 27 |
+| Sprint 2 — Login endurecido | Os 7 cenários da ADR 0005 passam no Laravel e o login do Next está acessível. | 0.3.0 | 10 | 28 |
 | Sprint 3 — Leitura (API) | A API lista, baixa e compacta respeitando a regra de acesso por pasta, com os cenários RH, travessia e UTF-8. | — | 7 | 27 |
 | Sprint 4 — Busca e leitura (Next) | Dá para navegar, buscar e visualizar arquivos pelo Next com a11y verde. | 0.4.0 | 9 | 27 |
 | Sprint 5 — Escrita (API) | Upload, pastas, mover e lixeira funcionam na API, com concorrência testada. | — | 7 | 28 |
@@ -44,15 +44,6 @@ Os pontos são hipótese de planejamento: recalibre com a velocidade real depois
 
 | Id | Sprint | Épico | Tarefa | Pts | Tipo e nota |
 |---|:-:|---|---|--:|---|
-| T010 | S1 | E1 Fundação e login | Instalar Composer e Node 24 LTS | 1 | infra — Downloads: pedir aprovação |
-| T011 | S1 | E1 Fundação e login | Criar api/ (Laravel 13) e web/ (Next 16, exportação estática) | 3 | infra |
-| T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra |
-| T013 | S1 | E1 Fundação e login | Migration baseline que adota o esquema atual, com SQLite em WAL | 5 | feature |
-| T014 | S1 | E1 Fundação e login | Sanctum SPA: login, logout e me, com testes Pest | 5 | feature |
-| T015 | S1 | E1 Fundação e login | Auditoria: tabela logs e retenção de 180 dias | 2 | feature |
-| T016 | S1 | E1 Fundação e login | Sessão: ociosa de 8 h e teto absoluto de 12 h (middleware) | 3 | segurança |
-| T017 | S1 | E1 Fundação e login | Dependabot ou Renovate para api/ e web/ | 1 | infra |
-| T018 | S1 | E1 Fundação e login | GET /api/v1/health e logs de aplicação em JSON | 2 | infra — Revisão de arquitetura, D5 e D6 |
 | T020 | S2 | E1 Fundação e login | Limitador de login em camadas (usuário+IP e IP) com hash fictício | 5 | segurança |
 | T021 | S2 | E1 Fundação e login | Alerta por usuário (LOGIN_ALERTA) sem bloquear o dono da conta | 2 | segurança |
 | T022 | S2 | E1 Fundação e login | Trocar a senha derruba as outras sessões | 2 | segurança |
@@ -62,6 +53,7 @@ Os pontos são hipótese de planejamento: recalibre com a velocidade real depois
 | T026 | S2 | E1 Fundação e login | Portar os testes da Fase 1 da matriz (62), incluindo os 7 todo | 5 | teste |
 | T027 | S2 | E1 Fundação e login | Next: login e troca de senha, com acessibilidade e contraste | 5 | feature |
 | T028 | S2 | E1 Fundação e login | Release 0.3.0 (changelog e tag) | 1 | release |
+| T029 | S2 | E1 Fundação e login | Aplicar o imagotipo e o favicon no login e no layout do Next | 1 | feature — docs/design-system/marca.md; aprovação da comunicação pendente |
 | T030 | S3 | E2 Leitura e busca | Portar FileStorage (resolve, safeItem, cleanName) com testes de travessia, UTF-8 e caixa | 5 | segurança |
 | T031 | S3 | E2 Leitura e busca | Policy de acesso por pasta (interseção na cadeia) e cenários RH | 5 | segurança |
 | T032 | S3 | E2 Leitura e busca | API: listar pasta com autoria em uma consulta | 3 | feature |
@@ -127,6 +119,14 @@ _Vazia._
 |---|:-:|---|---|--:|---|
 | T004 | S0 | E0 Documentação e 0.2.1 | Escrever roadmap, transição, Scrum e kanban | 3 | docs |
 | T005 | S0 | E0 Documentação e 0.2.1 | Ajustar ADRs 0003, 0004 e 0007, README, pendências e estratégia de testes | 2 | docs |
+| T011 | S1 | E1 Fundação e login | Criar api/ (Laravel 13) e web/ (Next 16, exportação estática) | 3 | infra — api/ Laravel 13.39 e web/ Next 16.4.3 (export estático, basePath /novo); build e testes padrão verdes |
+| T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra — api.yml (Pest 8.3/8.4, Pint, Larastan 6, audit), web.yml (ESLint, tsc, Vitest, build, audit), legado com filtro de pasta; tudo verde local; workflows ainda não rodaram no GitHub |
+| T013 | S1 | E1 Fundação e login | Migration baseline que adota o esquema atual, com SQLite em WAL | 5 | feature — Baseline idempotente + WAL, busy_timeout 15 s, IMMEDIATE; 5 testes (esquema igual ao do legado, dados preservados, coexistência) |
+| T014 | S1 | E1 Fundação e login | Sanctum SPA: login, logout e me, com testes Pest | 5 | feature — Sanctum 4.3 por cookie + CSRF; /api/v1/auth/login, logout, me; 16 testes Pest; conferido por HTTP real |
+| T015 | S1 | E1 Fundação e login | Auditoria: tabela logs e retenção de 180 dias | 2 | feature — AuditLog no formato do legado (LOGIN, LOGIN_FALHA sem texto digitado), intranet:logs-purge diário, retenção 180 dias; 8 testes |
+| T016 | S1 | E1 Fundação e login | Sessão: ociosa de 8 h e teto absoluto de 12 h (middleware) | 3 | segurança — Middleware: 8 h ociosa e 12 h absoluta, 401 session_expired, login após expirar funciona; 9 testes com mutação verificada |
+| T017 | S1 | E1 Fundação e login | Dependabot ou Renovate para api/ e web/ | 1 | infra — .github/dependabot.yml: composer /api, npm /web e /tests/js, github-actions; semanal/mensal para develop |
+| T018 | S1 | E1 Fundação e login | GET /api/v1/health e logs de aplicação em JSON | 2 | infra — GET /api/v1/health (200 ok / 503 degraded, sem dados sensíveis) e canal de log json diário; 5 testes |
 
 ## Concluído
 
@@ -135,3 +135,4 @@ _Vazia._
 | T001 | S0 | E0 Documentação e 0.2.1 | Corrigir caixa e UTF-8 nas regras de pasta (0.2.1) | 3 | segurança — Commit 3e9d9a4; 5 testes novos |
 | T002 | S0 | E0 Documentação e 0.2.1 | Avaliar a stack e registrar a ADR 0008 | 3 | docs — Laravel + Next.js em fatias |
 | T003 | S0 | E0 Documentação e 0.2.1 | Gerar a matriz de paridade dos testes | 2 | docs — 189 testes PHP e 44 declarações JS |
+| T010 | S1 | E1 Fundação e login | Instalar Composer e Node 24 LTS | 1 | infra — Node 24.20 já estava instalado; Composer 2.10.3 (SHA-256 conferido) em D:/php/tools |

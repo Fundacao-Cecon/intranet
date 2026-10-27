@@ -1,0 +1,52 @@
+name: Web (Next.js)
+
+# CI por pasta: só roda quando o front (ou este workflow) muda.
+on:
+  push:
+    branches: [develop, main, 'release/**', 'hotfix/**']
+    paths: ['web/**', '.github/workflows/web.yml']
+  pull_request:
+    paths: ['web/**', '.github/workflows/web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: web
+
+jobs:
+  web:
+    name: Lint, tipos, Vitest e build estático
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Vitest
+        run: npm test
+
+      - name: Build (exportação estática em out/)
+        run: npm run build
+
+      - name: Confere que o build é estático e fica sob /novo
+        run: |
+          test -f out/index.html
+          grep -q '/novo/_next/' out/index.html
+
+      - name: Auditoria de dependências (produção)
+        run: npm audit --omit=dev --audit-level=high

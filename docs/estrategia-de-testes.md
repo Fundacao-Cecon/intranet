@@ -147,3 +147,19 @@ Valem os mesmos princípios (a confiança vem sobretudo da camada HTTP; teste de
 **Gates de CI:** o PR só entra com Pest, Larastan, Pint, Vitest, build do Next e (a partir da Sprint 6) Playwright verdes; a cobertura não pode cair abaixo de 90 % nos arquivos críticos; o smoke roda no deploy de homologação.
 
 **Lacunas conhecidas desta etapa:** o piloto depende de servidor real (Apache ou Nginx com php-fpm); CSP estrita no Next estático exige hashes gerados no build; carga e envelhecimento do SQLite com duas pilhas escrevendo só se medem na Sprint 1.
+
+### Estado do CI por pasta (T012)
+
+Cada pasta tem o seu workflow e só roda quando ela (ou o próprio workflow) muda:
+
+| Workflow | Pasta | Jobs |
+|---|---|---|
+| [`tests.yml`](../.github/workflows/tests.yml) | legado (`src/`, `bin/`, `public/`, `config/`, `tests/`) | suítes PHP 7.4 a 8.4 e Windows, cobertura, PHPStan 5 |
+| [`api.yml`](../.github/workflows/api.yml) | `api/` | Pest (PHP 8.3 e 8.4); Pint, Larastan (nível 6) e `composer audit` |
+| [`web.yml`](../.github/workflows/web.yml) | `web/` | ESLint, `tsc`, Vitest, `next build` (confere `out/` sob `/novo`) e `npm audit` |
+
+Para rodar localmente: `cd api && vendor/bin/pest && vendor/bin/pint --test && vendor/bin/phpstan analyse` e `cd web && npm run lint && npm run typecheck && npm test && npm run build`.
+
+**Atenção ao proteger branches:** como cada workflow tem filtro de pasta, um PR que não toca a pasta não gera aquele check. Se o GitHub exigir os checks como obrigatórios, um check que nunca roda fica "pendente" e trava o PR. Exija só os checks da pasta tocada ou troque o filtro por um job que decide e termina verde.
+
+O front tem hoje um teste de arquitetura ([`web/tests/arquitetura.test.ts`](../web/tests/arquitetura.test.ts)) que protege a [ADR 0008](decisoes/0008-laravel-e-nextjs-em-fatias.md): exportação estática sob `/novo`, sem middleware e sem `'use server'`. Os testes de componente começam com a tela de login (T027).
