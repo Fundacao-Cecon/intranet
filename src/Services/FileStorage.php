@@ -66,6 +66,12 @@ final class FileStorage
         if (!$this->startsWith($real, $root)) {
             return [$root, ''];
         }
+        if (DIRECTORY_SEPARATOR === '\\') {
+            // O Windows ignora a caixa e aceita "RH.", "rh " e "RH~1" para a mesma pasta. Quem compara
+            // caminhos (regras de acesso, autoria, lixeira) precisa do nome real do disco, senão
+            // "?dir=rh" contornaria a regra de "RH".
+            $clean = trim(substr($real, strlen($root)), '/');
+        }
         return [$root . $clean . '/', $clean];
     }
 

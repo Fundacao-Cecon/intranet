@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Database;
 use PDO;
 
 /**
@@ -20,7 +21,7 @@ final class Groups
     /** @return array [bool ok, string mensagem] */
     public function create(string $name): array
     {
-        $name = trim(preg_replace('/\s+/u', ' ', $name));
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name)); // UTF-8 inválido: preg devolve null
         if (!preg_match('/^[\p{L}\p{N}][\p{L}\p{N} ._-]{1,49}$/u', $name)) {
             return [false, 'Nome inválido (2-50 letras, números, espaço, ponto, hífen ou _).'];
         }
@@ -31,7 +32,10 @@ final class Groups
         }
         try {
             $this->db->prepare("INSERT INTO groups (name) VALUES (?)")->execute([$name]);
-        } catch (\PDOException $e) { // dois admins criando o mesmo nome ao mesmo tempo
+        } catch (\PDOException $e) {
+            if ($e->getCode() !== '23000') { // só a violação de UNIQUE (dois admins, mesmo nome); "database is locked" etc. sobem
+                throw $e;
+            }
             return [false, 'Já existe um grupo com esse nome.'];
         }
         return [true, 'Grupo criado!'];
@@ -40,26 +44,18 @@ final class Groups
     /** @return array [bool ok, string mensagem] */
     public function delete(int $id): array
     {
-        $this->db->exec('BEGIN IMMEDIATE');
-        try {
+        return Database::transaction($this->db, function () use ($id) {
             $stmt = $this->db->prepare("SELECT 1 FROM groups WHERE id = ?");
             $stmt->execute([$id]);
             if (!$stmt->fetchColumn()) {
-                $this->db->exec('ROLLBACK');
                 return [false, 'Grupo não encontrado.'];
             }
             foreach (['group_members', 'folder_rule_groups'] as $table) {
                 $this->db->prepare("DELETE FROM $table WHERE group_id = ?")->execute([$id]);
             }
             $this->db->prepare("DELETE FROM groups WHERE id = ?")->execute([$id]);
-            $this->db->exec('COMMIT');
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->exec('ROLLBACK');
-            }
-            throw $e;
-        }
-        return [true, 'Grupo excluído.'];
+            return [true, 'Grupo excluído.'];
+        });
     }
 
     /**
@@ -70,12 +66,10 @@ final class Groups
      */
     public function setMembers(int $id, array $userIds): array
     {
-        $this->db->exec('BEGIN IMMEDIATE');
-        try {
+        return Database::transaction($this->db, function () use ($id, $userIds) {
             $stmt = $this->db->prepare("SELECT 1 FROM groups WHERE id = ?");
             $stmt->execute([$id]);
             if (!$stmt->fetchColumn()) {
-                $this->db->exec('ROLLBACK');
                 return [false, 'Grupo não encontrado.'];
             }
             $this->db->prepare("DELETE FROM group_members WHERE group_id = ?")->execute([$id]);
@@ -83,14 +77,8 @@ final class Groups
             foreach (array_unique(array_map('intval', $userIds)) as $uid) {
                 $ins->execute([$id, $uid]);
             }
-            $this->db->exec('COMMIT');
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->exec('ROLLBACK');
-            }
-            throw $e;
-        }
-        return [true, 'Membros atualizados.'];
+            return [true, 'Membros atualizados.'];
+        });
     }
 
     /** @return array[] [['id','name','members' => int[]], ...] ordenado por nome */

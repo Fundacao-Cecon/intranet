@@ -1,12 +1,16 @@
 # Pendências e itens não verificados
 
-## Verificado (26/10/2026, release 0.2.0)
+## Verificado (26/10/2026, release 0.2.0 + correção 0.2.1)
 
-- **249 testes automatizados** (`php tests/all.php`: 18 login, 57 unitários, 80 HTTP, 6 concorrência, 10 backup, 4 smoke, 74 JS/a11y) verdes em **PHP 8.3.36**; unit, HTTP e concorrência também em **PHP 7.4.33**. Mais 7 testes `todo` da ADR-0005 Fase 2 (pendentes de propósito).
-- **GitHub Actions** verde (PHP 7.4, 8.1, 8.3, 8.4, Windows, cobertura de linhas com meta 90 % e PHPStan nível 5) nos PRs #1 a #4. Detalhes dos testes em [estrategia-de-testes.md](estrategia-de-testes.md), que ainda descreve a contagem de 23/10.
+- **257 testes automatizados** (`php tests/all.php`: 18 login, 62 unitários, 82 HTTP, 6 concorrência, 10 backup, 4 smoke, 75 JS/a11y) verdes em **PHP 8.3.36**; as suítes PHP também em **PHP 7.4.33** (antes da 0.2.1). Cobertura de linhas 96,0 %; PHPStan nível 5 sem erros. Mais 7 testes `todo` da ADR-0005 Fase 2 (pendentes de propósito).
+- **GitHub Actions** verde (PHP 7.4, 8.1, 8.3, 8.4, Windows, cobertura de linhas com meta 90 % e PHPStan nível 5) nos PRs #1 a #4. Detalhes dos testes em [estrategia-de-testes.md](estrategia-de-testes.md).
 - Roteiro manual no navegador (JS, modais, upload, lixeira, perfil comum, celular, contraste claro/escuro) sem erros.
 - Backup com o sistema ligado, verificação por SHA-256 e restauração, com o sistema subindo na pasta restaurada.
 - `bin/smoke.php` aprova instalação certa e **reprova docroot errado**.
+
+## Direção do projeto
+
+A partir de 26/10/2026 o sistema migra, em fatias, para **Laravel 13 (API) + Next.js 16 (front estático)** ([ADR 0008](decisoes/0008-laravel-e-nextjs-em-fatias.md)). O sistema atual fica congelado (só correções de segurança). Plano em [roadmap.md](roadmap.md), processo em [scrum.md](scrum.md), tarefas em [kanban.md](kanban.md) e convivência das pilhas em [transicao.md](transicao.md). Os itens abaixo continuam valendo; os de login (Fase 2 da ADR-0005) passam a ser feitos no Laravel.
 
 ## Não verificado
 

@@ -27,6 +27,27 @@ final class Database
         return $pdo;
     }
 
+    /**
+     * Roda $fn numa transação com trava de escrita desde o início (BEGIN IMMEDIATE): dois processos
+     * que verificam e gravam não se atropelam. Devolve o que $fn devolver; exceção desfaz tudo.
+     *
+     * @return mixed
+     */
+    public static function transaction(PDO $pdo, callable $fn)
+    {
+        $pdo->exec('BEGIN IMMEDIATE');
+        try {
+            $result = $fn();
+            $pdo->exec('COMMIT');
+            return $result;
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->exec('ROLLBACK');
+            }
+            throw $e;
+        }
+    }
+
     private static function migrate(PDO $pdo): void
     {
         $pdo->exec("CREATE TABLE IF NOT EXISTS users (

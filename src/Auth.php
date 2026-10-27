@@ -239,20 +239,17 @@ final class Auth
 
         // Verificar e apagar na MESMA transação com trava de escrita: dois admins que se
         // excluem ao mesmo tempo não conseguem, juntos, deixar o sistema sem admin.
-        $this->db->exec('BEGIN IMMEDIATE');
-        try {
+        return Database::transaction($this->db, function () use ($id) {
             $stmt = $this->db->prepare("SELECT id, role FROM users WHERE id = ?");
             $stmt->execute([$id]);
             $target = $stmt->fetch();
             if (!$target) {
-                $this->db->exec('ROLLBACK');
                 return [false, 'Usuário não encontrado.'];
             }
 
             if ($target['role'] === 'admin') {
                 $admins = (int) $this->db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
                 if ($admins <= 1) {
-                    $this->db->exec('ROLLBACK');
                     return [false, 'Não é possível excluir o último admin.'];
                 }
             }
@@ -263,14 +260,8 @@ final class Auth
             // pelo AUTOINCREMENT, mas as ligações não podem sobrar).
             $this->db->prepare("DELETE FROM folder_rule_users WHERE user_id = ?")->execute([$id]);
             $this->db->prepare("DELETE FROM group_members WHERE user_id = ?")->execute([$id]);
-            $this->db->exec('COMMIT');
-        } catch (\Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->exec('ROLLBACK');
-            }
-            throw $e;
-        }
-        return [true, 'Usuário excluído.'];
+            return [true, 'Usuário excluído.'];
+        });
     }
 
     public function listUsers(): array

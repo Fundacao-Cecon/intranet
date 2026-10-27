@@ -39,5 +39,5 @@ Regra sem nenhuma linha em `folder_rule_users`/`folder_rule_groups` = só admins
 ## Convenções
 
 - Sempre `prepare()` com parâmetros; nunca concatenar entrada do usuário em SQL.
-- `LIKE` de prefixo usa `ESCAPE '\'` (nomes com `%` e `_`).
+- Prefixo de caminho (renomear/apagar pasta e filhos) usa `substr(col, 1, length(?)) = ?`, nunca `LIKE`: o `LIKE` do SQLite ignora a caixa (ASCII) e misturaria `A/` com `a/` no Linux; e o tamanho vem de `length()` do SQL (caracteres), não de `strlen()` do PHP (bytes), por causa dos acentos.
 - Mudança de esquema: adicionar `CREATE ... IF NOT EXISTS` ou `ALTER TABLE` condicional em `Database::migrate()`. Se o esquema crescer, trocar por tabela `schema_version` (ver ADR 0004).

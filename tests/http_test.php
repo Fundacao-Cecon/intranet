@@ -678,10 +678,6 @@ test('quem não está na regra vê a pasta com cadeado, sem link, sem autoria e 
 test('abrir a pasta fechada pela URL volta à raiz com "Acesso negado"; filhos também', function () use ($outro) {
     foreach (['RH', 'RH/Sub', 'RH/', 'RH//Sub'] as $d) {
         $r = $outro->get('/index.php?dir=' . $d);
-        if ($d === 'rh%2fSub') { // caixa diferente: não existe no Linux, na raiz no Windows ou 302 se resolver
-            check(strpos($r->body, 'SALARIOS-SECRETOS') === false && strpos($r->body, 'SUBPASTA-SECRETA') === false, "$d vazou");
-            continue;
-        }
         check($r->status === 302, "$d => {$r->status}");
         check($outro->follow($r)->flash() === 'Acesso negado a esta pasta.', "$d: aviso");
     }
@@ -696,6 +692,18 @@ test('download e ZIP de dentro da pasta fechada: 403 sem o conteúdo', function 
     check($r->status === 403 && $r->h('content-type') !== 'application/zip' && strpos($r->body, 'PK') !== 0, 'ZIP: ' . $r->status);
     $r = $outro->get('/index.php?action=download&dir=RH&file=folha.txt', ['X-Requested-With: XMLHttpRequest']);
     check($r->status === 403 && json_decode($r->body, true)['status'] === 'error', 'versão ajax');
+});
+
+test('digitar a pasta com outra caixa, ponto final ou nome curto não contorna a restrição', function () use ($outro, $rh2) {
+    foreach (['rh', 'Rh', 'RH.', 'RH ', 'RH~1', 'rh/sub', 'RH/SUB'] as $d) {
+        $r = $outro->get('/index.php?action=download&dir=' . rawurlencode($d) . '&file=folha.txt');
+        check(strpos($r->body, 'SALARIOS-SECRETOS') === false, json_encode($d) . ' entregou o arquivo restrito (' . $r->status . ')');
+        $r = $outro->get('/index.php?dir=' . rawurlencode($d));
+        check(strpos($r->body, 'folha.txt') === false && strpos($r->body, 'SALARIOS-SECRETOS') === false, json_encode($d) . ' listou o conteúdo restrito');
+        $r = $outro->get('/index.php?action=tree&dir=' . rawurlencode($d), ['X-Requested-With: XMLHttpRequest']);
+        check(strpos($r->body, 'Sub') === false, json_encode($d) . ' abriu a árvore da pasta restrita');
+    }
+    check($rh2->get('/index.php?action=download&dir=rh&file=folha.txt')->status !== 500, 'membro com caixa diferente não deve dar erro');
 });
 
 test('grupo e usuário listados entram: lista, baixa e baixa ZIP', function () use ($rh1, $rh2) {
@@ -754,6 +762,21 @@ test('excluir definitivamente e esvaziar a lixeira apagam as regras', function (
     $admin->post('/', ['action' => 'trash', 'item' => 'Tmp']);
     $admin->post('/index.php?mode=trash', ['action' => 'empty_trash']);
     check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '.lixeira%'"), 'sobrou regra após esvaziar');
+});
+
+test('renomear pasta com acento leva a regra da subpasta junto (UTF-8: bytes ≠ caracteres no SQLite)', function () use ($admin, $outro, $rh1, $storage) {
+    mkdir("$storage/uploads/Relatórios/Sub", 0775, true);
+    file_put_contents("$storage/uploads/Relatórios/Sub/seg.txt", 'SEGREDO-ACENTO');
+    $admin->post('/index.php?dir=' . rawurlencode('Relatórios'), ['action' => 'set_folder_access', 'folder' => 'Sub', 'mode' => 'restrict']);
+    check($rh1->get('/index.php?action=download&dir=' . rawurlencode('Relatórios/Sub') . '&file=seg.txt')->status === 403, 'regra não valeu antes do rename');
+    $admin->post('/', ['action' => 'rename', 'old_name' => 'Relatórios', 'new_name' => 'Ação']);
+    check(is_dir("$storage/uploads/Ação/Sub"), 'renomear falhou');
+    $r = $rh1->get('/index.php?action=download&dir=' . rawurlencode('Ação/Sub') . '&file=seg.txt');
+    check(strpos($r->body, 'SEGREDO-ACENTO') === false && $r->status === 403, 'a restrição da subpasta se perdeu após renomear (' . $r->status . ')');
+    check(count(dbq("SELECT 1 FROM folder_rules WHERE path = ?", ['Ação/Sub'])) === 1, 'caminho da regra: ' . json_encode(array_column(dbq('SELECT path FROM folder_rules'), 'path'), JSON_UNESCAPED_UNICODE));
+    $admin->post('/', ['action' => 'trash', 'item' => 'Ação']);
+    $admin->post('/index.php?mode=trash', ['action' => 'purge', 'item' => 'Ação']);
+    check(!dbq("SELECT 1 FROM folder_rules WHERE path LIKE '%o%Sub'"), 'sobrou regra após purge');
 });
 
 test('"só admins" (restringir sem marcar ninguém) e voltar a herdar', function () use ($admin, $rh1) {

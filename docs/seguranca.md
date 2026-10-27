@@ -34,7 +34,10 @@ Legenda: ✅ corrigido no código · ⚠️ ação manual necessária · ⏳ pen
 | 16 | Uploads simultâneos com o mesmo nome sobrescreviam arquivos em silêncio | ✅ FileStorage::reserveName (reserva atômica) |
 | 17 | Dois admins podiam se excluir ao mesmo tempo e deixar o sistema sem admin | ✅ deleteUser em transação BEGIN IMMEDIATE |
 | 18 | Erro 500 em modo debug saía com status 200 | ✅ buffer de saída em Application::run |
-| 19 | Corrida no limite de tentativas de login (30 simultâneas gravam 10 falhas) | ⏳ Fase 2 da ADR-0005 (teste 	odo já escrito) |
+| 19 | Corrida no limite de tentativas de login (30 simultâneas gravam 10 falhas) | ⏳ Fase 2 da ADR-0005, que passa a ser feita no Laravel ([ADR 0008](decisoes/0008-laravel-e-nextjs-em-fatias.md)); o teste `todo` já está escrito |
+| 20 | **Regra de acesso perdida ao renomear/apagar pasta no Linux:** o `LIKE` do SQLite ignora a caixa; renomear `A` levava a regra de `a/sub` para outro caminho e a subpasta ficava aberta | ✅ prefixo comparado com `substr(col,1,length(?)) = ?` (0.2.1) |
+| 21 | **Renomear pasta com acento corrompia os filhos** (`Relatórios/a.txt` → `Novoa.txt`): bytes do PHP × caracteres do SQLite; perdia autoria e regras das subpastas | ✅ `length()` do SQLite (0.2.1) |
+| 22 | Tamanho mínimo da senha contado em bytes (`strlen`) | ⏳ `PasswordPolicy` da nova stack |
 
 ## Permissões por pasta
 

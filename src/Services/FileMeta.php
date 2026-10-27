@@ -38,17 +38,22 @@ final class FileMeta
 
         // Filhos: troca o prefixo "old/" por "new/".
         $children = $this->db->prepare(
-            "UPDATE files_meta SET filepath = ? || substr(filepath, ?)
-             WHERE filepath LIKE ? ESCAPE '\\'"
+            "UPDATE files_meta SET filepath = ? || substr(filepath, length(?))
+             WHERE substr(filepath, 1, length(?)) = ?"
         );
-        $children->execute([$new, strlen($old) + 1, self::escapeLike($old) . '/%']);
+        // substr() compara byte a byte; LIKE ignora a caixa (ASCII) e misturaria "A/" com "a/" no Linux.
+        // length() do SQLite conta caracteres, como o substr() dele: strlen() do PHP conta bytes e
+        // quebraria os filhos de "Relatórios".
+        $prefix = $old . '/';
+        $children->execute([$new, $prefix, $prefix, $prefix]);
     }
 
     /** Apaga o metadado do item e de tudo dentro dele. */
     public function removed(string $path): void
     {
-        $stmt = $this->db->prepare("DELETE FROM files_meta WHERE filepath = ? OR filepath LIKE ? ESCAPE '\\'");
-        $stmt->execute([$path, self::escapeLike($path) . '/%']);
+        $stmt = $this->db->prepare("DELETE FROM files_meta WHERE filepath = ? OR substr(filepath, 1, length(?)) = ?");
+        $prefix = $path . '/';
+        $stmt->execute([$path, $prefix, $prefix]);
     }
 
     /**
@@ -102,10 +107,5 @@ final class FileMeta
     public function forgetAllOrigins(): void
     {
         $this->db->exec("DELETE FROM trash_origin");
-    }
-
-    private static function escapeLike(string $s): string
-    {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $s);
     }
 }
