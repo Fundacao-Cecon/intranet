@@ -2,8 +2,14 @@
 
 | Documento | Para que serve |
 |---|---|
-| [arquitetura.md](arquitetura.md) | Camadas, fluxo de uma requisição, rotas |
-| [estrategia-de-testes.md](estrategia-de-testes.md) | Plano de testes: pirâmide, risco, 102 testes automatizados, mutação, defeitos achados e lacunas |
+| [roadmap.md](roadmap.md) | Para onde o projeto vai: fases da migração para Laravel + Next.js e módulos novos |
+| [scrum.md](scrum.md) | Como as fatias viram sprints: papéis, cerimônias, DoR/DoD, estimativa e plano de sprints |
+| [kanban.md](kanban.md) | Quadro de tarefas (retrato versionado; o quadro vivo é um artefato) |
+| [transicao.md](transicao.md) | Como o PHP atual e a nova stack convivem; runbooks de piloto, troca e volta atrás |
+| [matriz-de-paridade.md](matriz-de-paridade.md) | Cada teste do sistema atual ligado ao seu substituto na nova stack |
+| [revisao-de-arquitetura.md](revisao-de-arquitetura.md) | Revisão de 26/10/2026: achados do desenho atual, arquitetura-alvo com diagramas, decisões D1 a D6 e riscos |
+| [arquitetura.md](arquitetura.md) | Camadas, fluxo de uma requisição, rotas (sistema atual) |
+| [estrategia-de-testes.md](estrategia-de-testes.md) | Plano de testes: pirâmide, risco, 257 testes automatizados, mutação, defeitos achados, lacunas e estratégia da nova stack |
 | [fluxos.md](fluxos.md) | Fluxos do login à ação final (diagramas Mermaid + passo → `arquivo:linha`) |
 | [fluxos/viz/index.html](fluxos/viz/index.html) | Grafo interativo do código (Trail-Code), arquivo único |
 | [refatoracao.md](refatoracao.md) | Mapa "código antigo → código novo" (do `index.php` monolítico) |

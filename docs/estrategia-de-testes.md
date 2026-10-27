@@ -118,3 +118,32 @@ Executado em 23/10/2026 no Chromium do app, sem erros de console: login (alterna
 - Dados só em pasta temporária (`mktmp()`); nunca o `storage/` real; usuários e senhas de teste só no código do teste.
 - Funcionalidade nova começa por `todo()` e vira `test()` quando passar.
 - Teste de tempo usa **medianas e razões**, nunca limites absolutos.
+
+## 10. Estratégia de testes da nova stack (Laravel + Next.js)
+
+Valem os mesmos princípios (a confiança vem sobretudo da camada HTTP; teste de segurança verifica o efeito; bug corrigido ganha teste que falha sem a correção). O sistema atual fica congelado e seus testes continuam rodando até a [matriz de paridade](matriz-de-paridade.md) chegar a 100 %.
+
+| Camada | Ferramenta | O que prova | Meta |
+|---|---|---|---|
+| Unitário (API) | Pest | `FileStorage` (travessia, caixa, UTF-8), Policy de pasta, política de senha, limitador | ≥ 90 % de linhas nos arquivos críticos |
+| Feature (API) | Pest + SQLite em memória, `RefreshDatabase` | Rotas JSON ponta a ponta: login, listar, download com `Range`, ZIP, escrita, lixeira, usuários, grupos | Todo cenário da matriz, com o **efeito** verificado (disco e banco) |
+| Concorrência | Pest + processos paralelos | 8 uploads com o mesmo nome, 2 admins se excluindo, 30 tentativas de login simultâneas | Sem corrida (máximo 6 falhas registradas) |
+| Comandos | Pest | `intranet:backup`, `:restore`, `:create-user`, `:smoke` | Backup restaurável e verificado por SHA-256 |
+| Estático | Larastan (6+), Pint, `tsc`, ESLint | Tipos e erros prováveis | Zero erros no CI |
+| Componentes (front) | Vitest + Testing Library + jsdom | Modais, teclado, busca, árvore, mover/arrastar, toast como texto | Portar os 44 testes JS da matriz |
+| Acessibilidade | axe (WCAG 2.1 A/AA) + teste de contraste 4,5:1 | Telas, modais, temas claro e escuro | Zero violações |
+| Navegador real | Playwright (desktop e celular) | Arrastar e soltar, layout, upload com progresso, cookie e CSRF reais | Roteiro da seção 7 automatizado |
+| Contrato | OpenAPI (Scramble) + tipos gerados | Front e API concordam no formato | Build quebra se divergir |
+| Servidor real | `artisan intranet:smoke` | Docroot, cabeçalhos, cookies, HSTS, login | Zero `FAIL` antes do piloto e da troca |
+
+**Casos obrigatórios herdados dos defeitos já achados** (entram **antes** do código de renomear e mover):
+
+1. Renomear/apagar `A` não toca a regra, a autoria nem as versões de `a/sub` (a caixa conta).
+2. Renomear `Relatórios` mantém os caminhos dos filhos (`Relatórios/a.txt`, não `Novoa.txt`), a regra e a autoria.
+3. `RH`, `rh`, `RH.`, `RH~1` e `rh/sub` não contornam a restrição em listar, árvore, download, ZIP e busca.
+4. `?file[]=x` e POST pequeno sem o formato esperado não geram "Array" nem falso 413.
+5. Upload simultâneo com o mesmo nome nunca sobrescreve.
+
+**Gates de CI:** o PR só entra com Pest, Larastan, Pint, Vitest, build do Next e (a partir da Sprint 6) Playwright verdes; a cobertura não pode cair abaixo de 90 % nos arquivos críticos; o smoke roda no deploy de homologação.
+
+**Lacunas conhecidas desta etapa:** o piloto depende de servidor real (Apache ou Nginx com php-fpm); CSP estrita no Next estático exige hashes gerados no build; carga e envelhecimento do SQLite com duas pilhas escrevendo só se medem na Sprint 1.

@@ -1,6 +1,8 @@
 # ADR 0003 — Sem framework; camadas finas com autoload próprio
 
-**Status:** aceita
+**Status:** substituída pela [ADR 0008](0008-laravel-e-nextjs-em-fatias.md) (26/10/2026). Continua valendo para o **sistema atual** (legado), que fica congelado até a troca para Laravel + Next.js (Fase 4 do [roadmap](../roadmap.md)).
+
+> O gatilho de reavaliação previsto abaixo ("se o sistema crescer, reavaliar um micro-framework ou Laravel") foi acionado pelo roadmap de módulos novos e pela API.
 
 ## Contexto
 A aplicação é pequena (um gerenciador de arquivos). Não há Composer nem processo de build no ambiente atual, e a equipe mantém o sistema em um servidor simples.

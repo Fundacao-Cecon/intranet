@@ -1,6 +1,6 @@
 # ADR 0004 — Manter SQLite
 
-**Status:** aceita
+**Status:** aceita. Segue valendo durante a migração para Laravel + Next.js ([ADR 0008](0008-laravel-e-nextjs-em-fatias.md)): as duas pilhas compartilham o mesmo SQLite (ver [transicao.md](../transicao.md)). O plano de migração para PostgreSQL está na [ADR 0007](0007-migracao-postgresql.md) (adiada para a Fase 5).
 
 ## Contexto
 O banco guarda poucos usuários, logs e metadados. Acesso concorrente é baixo (poucos admins escrevem).

@@ -107,7 +107,9 @@ flowchart LR
     S --> F[(storage/uploads)]
 ```
 
-Camadas finas e sem framework ([ADR-0003](docs/decisoes/0003-sem-framework.md)). Views não acessam banco nem disco; Controllers não montam SQL nem caminhos na mão. Veja [arquitetura.md](docs/arquitetura.md).
+> **Direção:** este é o sistema atual, **congelado** (só correções de segurança). Ele migra em fatias para Laravel 13 + Next.js 16; ver o [roadmap](docs/roadmap.md).
+
+Camadas finas e sem framework ([ADR-0003](docs/decisoes/0003-sem-framework.md), substituída pela [ADR-0008](docs/decisoes/0008-laravel-e-nextjs-em-fatias.md) na nova stack). Views não acessam banco nem disco; Controllers não montam SQL nem caminhos na mão. Veja [arquitetura.md](docs/arquitetura.md).
 
 <details>
 <summary>Estrutura de pastas</summary>
@@ -182,6 +184,9 @@ Faça os commits no padrão [Conventional Commits](https://www.conventionalcommi
 | Documento | Conteúdo |
 |---|---|
 | [docs/README.md](docs/README.md) | Índice completo |
+| [roadmap.md](docs/roadmap.md) | Para onde o projeto vai: migração em fatias para Laravel + Next.js e módulos novos ([ADR-0008](docs/decisoes/0008-laravel-e-nextjs-em-fatias.md)) |
+| [scrum.md](docs/scrum.md) · [kanban.md](docs/kanban.md) | Sprints, cerimônias e quadro de tarefas |
+| [transicao.md](docs/transicao.md) | Como o sistema atual e a nova stack convivem; piloto, troca e volta atrás |
 | [arquitetura.md](docs/arquitetura.md) | Camadas, fluxo de requisição e rotas |
 | [fluxos.md](docs/fluxos.md) | Fluxos do login à ação final, com diagramas |
 | [operacao.md](docs/operacao.md) | Instalação, servidor, backup e logs |
