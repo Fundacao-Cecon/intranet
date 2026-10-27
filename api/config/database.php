@@ -38,10 +38,14 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
-            'transaction_mode' => 'DEFERRED',
+            // Convivência com o legado (docs/transicao.md): o mesmo arquivo é gravado pelos dois.
+            // 15 s de espera como no legado; WAL deixa leitores e um escritor andarem juntos
+            // (o modo fica gravado no arquivo, o legado o respeita sem mudar); IMMEDIATE trava
+            // a escrita no início, como o BEGIN IMMEDIATE de App\Database::transaction.
+            'busy_timeout' => 15000,
+            'journal_mode' => 'WAL',
+            'synchronous' => 'NORMAL',
+            'transaction_mode' => 'IMMEDIATE',
         ],
 
         'mysql' => [
