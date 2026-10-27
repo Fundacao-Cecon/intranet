@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnforceSessionLimits;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // SPA no mesmo domínio: sessão por cookie + CSRF (X-XSRF-TOKEN), sem tokens de API.
         $middleware->statefulApi();
+        // Ociosidade de 8 h e teto de 12 h, como no legado.
+        $middleware->appendToGroup('api', EnforceSessionLimits::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

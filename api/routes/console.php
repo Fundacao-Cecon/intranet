@@ -1,8 +1,7 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Retenção da auditoria (o legado limpava 1 em cada ~50 requisições). Precisa do cron do
+// agendador: `* * * * * php artisan schedule:run` (docs/transicao.md).
+Schedule::command('intranet:logs-purge')->daily();

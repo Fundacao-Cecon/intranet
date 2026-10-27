@@ -106,7 +106,20 @@ SESSION_SAME_SITE=lax
 SANCTUM_STATEFUL_DOMAINS=intranet.exemplo.org.br
 SESSION_COOKIE=intranet_nova_session   # cookie próprio: não se mistura com o do legado
 BCRYPT_ROUNDS=10                     # igual ao custo do legado (o hash fictício do login tem custo 10)
+INTRANET_SESSION_IDLE=28800          # 8 h sem uso (segundos), como o legado
+INTRANET_SESSION_ABSOLUTE=43200      # 12 h desde o login, mesmo com uso contínuo
+INTRANET_LOG_RETENTION_DAYS=180      # auditoria (tabela logs)
+LOG_CHANNEL=json                     # logs técnicos em JSON, em storage/logs/app-AAAA-MM-DD.log
+LOG_LEVEL=info
 ```
+
+O **agendador do Laravel** precisa de uma linha no cron do usuário do php-fpm. Sem ela a retenção da auditoria (`intranet:logs-purge`, diária) não roda e a tabela `logs` só cresce (o legado limpava sozinho, 1 em cada ~50 requisições):
+
+```
+* * * * * cd /srv/intranet/api && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Monitor da TI: `GET /api/v1/health` responde `200 {"status":"ok"}` com o banco de pé e `503 {"status":"degraded"}` sem ele, sem revelar versão nem caminhos.
 
 Pontos de atenção:
 

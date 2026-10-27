@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -24,7 +25,7 @@ class AuthController extends Controller
      */
     private const DUMMY_HASH = '$2y$10$VHvJoBNQ3REF96YP9b/vnOqqwi7d.zFLi1OCi0RDqW1cOM2jief8W';
 
-    public function login(Request $request): JsonResponse
+    public function login(Request $request, AuditLog $audit): JsonResponse
     {
         // Origem fora de SANCTUM_STATEFUL_DOMAINS: a rota não ganha sessão. Recusa com clareza
         // em vez de estourar 500 mais adiante.
@@ -42,6 +43,8 @@ class AuthController extends Controller
 
         $ok = Hash::check($data['password'], $user->password ?? self::DUMMY_HASH);
         if (! $user || ! $ok) {
+            $audit->record('LOGIN_FALHA', $audit->label($data['username'], $user), 'Visitante');
+
             return response()->json(['message' => 'Usuário ou senha incorretos.'], 422);
         }
 
@@ -53,10 +56,13 @@ class AuthController extends Controller
         // Novo ID de sessão: evita session fixation.
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
+        $agora = now()->timestamp;
+        $request->session()->put(['login_at' => $agora, 'last_activity' => $agora]);
 
         // Mesmo formato do legado (hora local do servidor).
         DB::table('users')->where('id', $user->id)
             ->update(['last_login' => DB::raw("DATETIME('now', 'localtime')")]);
+        $audit->record('LOGIN', 'Entrou no sistema', $user->username);
 
         return response()->json($this->payload($user));
     }

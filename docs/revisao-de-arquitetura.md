@@ -239,7 +239,7 @@ Logs de aplicação em JSON (`storage/logs`), `health` para o monitor da TI, e a
 Resultam em tarefas no [kanban](kanban.md):
 
 1. [ ] **T037** Criar `PathIndex` e eventos de caminho com os testes de caixa e UTF-8 (Sprint 3, antes de renomear e mover).
-2. [ ] **T018** `GET /api/v1/health` e logs de aplicação em JSON (Sprint 1).
+2. [x] **T018** `GET /api/v1/health` e logs de aplicação em JSON (Sprint 1).
 3. [ ] **T048** ADR da busca com a medição e o limiar para FTS5 (Sprint 4).
 4. [ ] Dividir `FilesController` na nova API por assunto, sem portar o `stream()` do controller (Sprints 3 e 5).
 5. [ ] Registrar as ADRs de D1, D2, D3 e D5 junto da primeira tarefa que as usa.
