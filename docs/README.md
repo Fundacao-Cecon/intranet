@@ -8,6 +8,7 @@
 | [transicao.md](transicao.md) | Como o PHP atual e a nova stack convivem; runbooks de piloto, troca e volta atrás |
 | [matriz-de-paridade.md](matriz-de-paridade.md) | Cada teste do sistema atual ligado ao seu substituto na nova stack |
 | [revisao-de-arquitetura.md](revisao-de-arquitetura.md) | Revisão de 26/10/2026: achados do desenho atual, arquitetura-alvo com diagramas, decisões D1 a D6 e riscos |
+| [design-system/marca.md](design-system/marca.md) | Imagotipo da Intranet FCECON: conceito, cores, área de respeito, tamanhos mínimos, versões claro/escuro e uso no HTML |
 | [arquitetura.md](arquitetura.md) | Camadas, fluxo de uma requisição, rotas (sistema atual) |
 | [estrategia-de-testes.md](estrategia-de-testes.md) | Plano de testes: pirâmide, risco, 257 testes automatizados, mutação, defeitos achados, lacunas e estratégia da nova stack |
 | [fluxos.md](fluxos.md) | Fluxos do login à ação final (diagramas Mermaid + passo → `arquivo:linha`) |
