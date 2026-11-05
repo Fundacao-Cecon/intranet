@@ -50,6 +50,14 @@ final class LoginThrottle
         DB::table('login_attempts')->where('username', self::chave($username))->where('ip', $ip)->delete();
     }
 
+    /** Falhas deste login (todos os IPs somados) dentro da janela do alerta. Não bloqueia ninguém. */
+    public function userFailures(string $username): int
+    {
+        $desde = now()->timestamp - (int) config('intranet.login_alert_window_minutes') * 60;
+
+        return DB::table('login_attempts')->where('username', self::chave($username))->where('attempted_at', '>', $desde)->count();
+    }
+
     /** Segundos até o bloqueio aliviar, para o cabeçalho Retry-After (no mínimo 1). */
     public function retryAfter(string $username, string $ip): int
     {
