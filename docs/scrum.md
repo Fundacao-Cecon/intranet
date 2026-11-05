@@ -192,3 +192,5 @@ _Registre aqui, ao fim de cada sprint: o que funcionou, o que não funcionou, at
 3. Rodar `/code-review` antes de pedir aprovação e registrar no PR. Responsável: quem abre o PR. Prazo: a partir da Sprint 2.
 
 **Atenção para a Sprint 2:** a API não deve ser exposta pelo proxy antes do T020 (limitador de login); `POST /api/v1/auth/login` aceita tentativas ilimitadas.
+
+**Ressalva resolvida (05/11/2026):** o login a partir do Next passou a existir (T027, em revisão): a tela entra pela API real, a sessão persiste ao recarregar e o "Sair" encerra no servidor, conferido no navegador. Com isso a meta da Sprint 1 fica atingida por inteiro quando o PR for mergeado. A troca de senha do T027 original foi separada no T027b, porque depende de T022 a T024.

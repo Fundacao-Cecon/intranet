@@ -1,13 +1,59 @@
+/* Tokens de cor. Pares texto/fundo com contraste mínimo de 4,5:1 (WCAG 2.1 AA), conferido em
+   tests/contraste.test.ts. O azul é a cor de ação da interface (docs/design-system/marca.md). */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1b1f24;
+  --superficie: #f6f8fa;
+  --borda: #d0d7de;
+  --borda-campo: #6e7781;
+  --texto-secundario: #4b535c;
+  --acao: #0b5fd6;
+  --acao-hover: #0a4fb3;
+  --acao-texto: #ffffff;
+  --erro-texto: #9b1c1c;
+  --erro-fundo: #fdecec;
+  --aviso-texto: #7a4a00;
+  --aviso-fundo: #fff4e0;
+}
+
+:root[data-tema="escuro"] {
+  --background: #0f1720;
+  --foreground: #e6e9ee;
+  --superficie: #16212d;
+  --borda: #2f3d4d;
+  --borda-campo: #8b98a8;
+  --texto-secundario: #aab4c0;
+  --acao: #6aa3ff;
+  --acao-hover: #8bb8ff;
+  --acao-texto: #0b1220;
+  --erro-texto: #ffb4b4;
+  --erro-fundo: #3a1c1c;
+  --aviso-texto: #ffd699;
+  --aviso-fundo: #3a2a10;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-tema="claro"]) {
+    --background: #0f1720;
+    --foreground: #e6e9ee;
+    --superficie: #16212d;
+    --borda: #2f3d4d;
+    --borda-campo: #8b98a8;
+    --texto-secundario: #aab4c0;
+    --acao: #6aa3ff;
+    --acao-hover: #8bb8ff;
+    --acao-texto: #0b1220;
+    --erro-texto: #ffb4b4;
+    --erro-fundo: #3a1c1c;
+    --aviso-texto: #ffd699;
+    --aviso-fundo: #3a2a10;
   }
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
 }
 
 html {
@@ -26,24 +72,13 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Pilha de sistema: sem fonte da web (marca.md, seção 5). */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+:focus-visible {
+  outline: 3px solid var(--acao);
+  outline-offset: 2px;
 }
