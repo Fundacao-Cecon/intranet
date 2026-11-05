@@ -1,0 +1,45 @@
+# Atualizações de dependências (T017). Uma entrada por pasta, em PRs semanais para a develop.
+# Minor e patch vêm agrupados para não abrir dezenas de PRs; major vem sozinho, para revisão.
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: /api
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencias, api]
+    groups:
+      api-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencias, web]
+    groups:
+      web-minor-patch:
+        update-types: [minor, patch]
+
+  # Testes de JS do legado (jsdom e axe-core), congelado: só correções.
+  - package-ecosystem: npm
+    directory: /tests/js
+    target-branch: develop
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    labels: [dependencias, legado]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    labels: [dependencias, ci]

@@ -114,7 +114,7 @@ Pontos de **Fibonacci** (1, 2, 3, 5, 8, 13) medem tamanho relativo, não horas. 
 |---|---|---|--:|:-:|
 | **0** | E0 | Decisão registrada; plano e documentação publicados; correção de segurança commitada | 14 | 0.2.1 |
 | **1** | E1 | Alguém entra pela API a partir do Next, com CI verde e o esquema adotado sem quebrar o legado | 25 | — |
-| **2** | E1 | Os 7 cenários da ADR 0005 passam no Laravel e o login do Next está acessível | 27 | **0.3.0** |
+| **2** | E1 | Os 7 cenários da ADR 0005 passam no Laravel e o login do Next está acessível | 28 | **0.3.0** |
 | **3** | E2 | A API lista, baixa e compacta respeitando a regra de acesso por pasta | 27 | — |
 | **4** | E2 | Navegar, buscar e visualizar pelo Next com acessibilidade verde | 27 | **0.4.0** |
 | **5** | E3 | Upload, pastas, mover e lixeira na API, com concorrência testada | 28 | — |
@@ -123,7 +123,7 @@ Pontos de **Fibonacci** (1, 2, 3, 5, 8, 13) medem tamanho relativo, não horas. 
 | **8** | E4 | Troca do `/`, legado aposentado | 17 | **1.0.0** |
 | 9 a 12 | E5 | Mural de avisos → Versões → Link temporário → TOTP e PostgreSQL | 8 / 13 / 8 / 19 | 1.1.0 a 1.4.0 |
 
-Pontos totais: **265** (8 já concluídos hoje, de 14 da Sprint 0). Até o 1.0.0: Sprints 0 a 8, cerca de **17 semanas** (4 meses), já com folga e piloto. Isto corrige a estimativa de "2 a 3 meses" do roadmap, que era de uma pessoa sem folga nem cerimônias.
+Pontos totais: **266** (8 já concluídos hoje, de 14 da Sprint 0). Até o 1.0.0: Sprints 0 a 8, cerca de **17 semanas** (4 meses), já com folga e piloto. Isto corrige a estimativa de "2 a 3 meses" do roadmap, que era de uma pessoa sem folga nem cerimônias.
 
 ### Riscos por sprint
 
@@ -169,4 +169,26 @@ Pontos totais: **265** (8 já concluídos hoje, de 14 da Sprint 0). Até o 1.0.0
 
 ## Retrospectivas
 
-_Nenhuma ainda. Registre aqui, ao fim de cada sprint: o que funcionou, o que não funcionou, até 3 ações com responsável e prazo._
+_Registre aqui, ao fim de cada sprint: o que funcionou, o que não funcionou, até 3 ações com responsável e prazo._
+
+### Sprint 1 — Fundação (revisada em 05/11/2026)
+
+**Resultado:** 9 tarefas e 25 pontos entregues (T010 a T018). Verificado em máquina limpa: Pest 43 testes, Pint e Larastan limpos; web com ESLint, `tsc`, Vitest e build verdes; CI do PR #6 com 11 checks verdes. Velocidade da sprint: **25 pontos**.
+
+**Meta:** atingida em parte. CI verde, esquema adotado e login pela API estão prontos; o login **a partir do Next** não existe ainda (a `web/` é só a página inicial padrão). Ele pertence ao T027, da Sprint 2.
+
+**Funcionou**
+- Teste primeiro e CI por pasta: o legado seguiu verde durante toda a sprint.
+- Login com hash fictício, regeneração de sessão e log sem texto digitado, no mesmo formato do legado.
+
+**Não funcionou**
+- A meta da sprint prometia o Next, mas o plano só entregava a API.
+- O quadro ficou desatualizado (tarefas prontas em "Em revisão").
+- Não há registro de autorrevisão (`/code-review`) no PR, como pede a Definição de Pronto.
+
+**Ações**
+1. Escrever as metas de sprint a partir do que as tarefas entregam de fato. Responsável: quem planeja a sprint. Prazo: planejamento da Sprint 2.
+2. Mover as tarefas no `kanban.md` junto de cada merge. Responsável: quem faz o merge. Prazo: contínuo.
+3. Rodar `/code-review` antes de pedir aprovação e registrar no PR. Responsável: quem abre o PR. Prazo: a partir da Sprint 2.
+
+**Atenção para a Sprint 2:** a API não deve ser exposta pelo proxy antes do T020 (limitador de login); `POST /api/v1/auth/login` aceita tentativas ilimitadas.

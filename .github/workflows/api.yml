@@ -1,0 +1,81 @@
+name: API (Laravel)
+
+# CI por pasta: só roda quando a API (ou este workflow) muda. O legado tem o dele em tests.yml.
+on:
+  push:
+    branches: [develop, main, 'release/**', 'hotfix/**']
+    paths: ['api/**', '.github/workflows/api.yml']
+  pull_request:
+    paths: ['api/**', '.github/workflows/api.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: api
+
+jobs:
+  pest:
+    name: Pest (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, sqlite3, mbstring, fileinfo, openssl, tokenizer, xml, ctype, curl
+          coverage: none
+
+      - name: Cache do Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ matrix.php }}-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Chave e arquivos de ambiente
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Os testes de convivência rodam o src/Database.php do legado em outro processo PHP.
+      - name: Pest
+        run: vendor/bin/pest
+
+  qualidade:
+    name: Larastan e Pint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, sqlite3, mbstring, fileinfo, openssl, tokenizer, xml, ctype, curl
+          coverage: none
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-8.3-${{ hashFiles('api/composer.lock') }}
+          restore-keys: composer-8.3-
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Pint (estilo)
+        run: vendor/bin/pint --test
+
+      - name: Larastan (nível 6)
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+      - name: Auditoria de dependências
+        run: composer audit --locked
