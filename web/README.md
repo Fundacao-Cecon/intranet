@@ -33,8 +33,19 @@ Variáveis do proxy: `PORT` (padrão 8080) e `API_URL` (padrão `http://127.0.0.
 |---|---|
 | `src/lib/api.ts` | Cliente da API: `GET /sanctum/csrf-cookie`, `X-XSRF-TOKEN`, `credentials: "include"`, nova tentativa única no 419 |
 | `src/components/Intranet.tsx` | Pergunta à API quem está logado e mostra o login ou o painel |
-| `src/components/LoginForm.tsx` | Formulário de login (acessível, com mensagens para 422, 429, 419, 5xx e falha de rede) |
+| `src/components/LoginForm.tsx` | Formulário de login com React Hook Form (acessível, com mensagens para 422, 429, 419, 5xx e falha de rede) |
+| `src/lib/validacao.ts` | Esquemas Zod dos formulários. Só dão resposta imediata ao usuário: a API valida de novo e decide |
 | `src/app/globals.css` | Tokens de cor (tema claro e escuro) |
 | `tests/` | Guardas da ADR 0008 e contraste WCAG AA dos tokens |
+
+## Formulários: React Hook Form + Zod
+
+Todo formulário novo usa **React Hook Form** (estado, envio e foco no primeiro erro) com um esquema **Zod** em `src/lib/validacao.ts` (via `@hookform/resolvers`). Regras:
+
+- Importe de **`zod/mini`**, não de `zod`: a API em funções (`.check(z.trim(), z.minLength(1, "..."))`) pesa cerca de 15 KB gzip a menos no JS da tela de login. A ordem dos checks importa (aparar antes de exigir o tamanho).
+- O esquema é só conforto: a regra de verdade (credenciais, limites, política de senha) fica na API (ADR 0008). Use os mesmos limites que ela.
+- O formulário leva `noValidate` (a validação é a nossa, com mensagens em português) e cada campo com erro recebe `aria-invalid` e `aria-describedby` apontando para a mensagem.
+- Erros que vêm da API ficam em um alerta separado (`role="alert"`), sem marcar campos.
+- Nunca aparar (`trim`) senhas.
 
 A fonte é a pilha do sistema (sem fonte da web). O imagotipo só entra depois da aprovação da comunicação (T029).

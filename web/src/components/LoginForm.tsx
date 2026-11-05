@@ -1,8 +1,12 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
 import { ApiError, type Usuario } from "@/lib/api";
+import { type DadosLogin, esquemaLogin } from "@/lib/validacao";
+import { CampoTexto } from "./CampoTexto";
 import styles from "./Intranet.module.css";
 
 type Props = {
@@ -27,28 +31,45 @@ function mensagemDeErro(erro: unknown): string {
 }
 
 export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
-  const [usuario, setUsuario] = useState("");
-  const [senha, setSenha] = useState("");
-  const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  // Erro que veio da API (senha errada, bloqueio, rede). Os erros de preenchimento são do RHF.
+  const [erroDaApi, setErroDaApi] = useState<string | null>(null);
 
-  async function enviar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    if (enviando) return;
-    setEnviando(true);
-    setErro(null);
+  const {
+    register,
+    handleSubmit,
+    resetField,
+    setFocus,
+    formState: { errors, isSubmitting },
+  } = useForm<DadosLogin>({
+    resolver: zodResolver(esquemaLogin),
+    defaultValues: { usuario: "", senha: "" },
+  });
+
+  async function enviar({ usuario, senha }: DadosLogin) {
+    setErroDaApi(null);
     try {
       aoEntrar(await entrar(usuario, senha));
     } catch (e) {
-      setErro(mensagemDeErro(e));
-      setSenha(""); // a senha digitada não fica na tela nem no estado
-      setEnviando(false);
+      setErroDaApi(mensagemDeErro(e));
+      resetField("senha"); // a senha digitada não fica na tela nem no estado
+      setFocus("senha");
     }
   }
 
+  // Um único alerta no topo: o resumo dos erros de preenchimento (anunciados todos de uma vez)
+  // ou, se não houver nenhum, o erro da API. Nunca os dois: o erro antigo da API não descreve
+  // mais a tentativa atual quando o reenvio nem chegou a sair.
+  const mensagensDeCampo = [errors.usuario?.message, errors.senha?.message].filter(Boolean);
+  const alerta = mensagensDeCampo.length > 0 ? `Corrija os campos: ${mensagensDeCampo.join(" ")}` : erroDaApi;
+
   return (
     <main className={styles.centro}>
-      <form className={styles.cartao} onSubmit={enviar} aria-labelledby="titulo-login">
+      <form
+        className={styles.cartao}
+        onSubmit={handleSubmit(enviar, () => setErroDaApi(null))}
+        aria-labelledby="titulo-login"
+        noValidate
+      >
         <h1 id="titulo-login" className={styles.titulo}>
           Intranet FCECON
         </h1>
@@ -59,44 +80,34 @@ export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
             {aviso}
           </p>
         )}
-        {erro && (
+        {alerta && (
           <p role="alert" className={styles.erro}>
-            {erro}
+            {alerta}
           </p>
         )}
 
-        <label className={styles.rotulo} htmlFor="usuario">
-          Usuário
-        </label>
-        <input
+        <CampoTexto
           id="usuario"
-          className={styles.campo}
-          name="username"
+          rotulo="Usuário"
           type="text"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          required
-          value={usuario}
-          onChange={(e) => setUsuario(e.target.value)}
+          erro={errors.usuario?.message}
+          {...register("usuario")}
         />
 
-        <label className={styles.rotulo} htmlFor="senha">
-          Senha
-        </label>
-        <input
+        <CampoTexto
           id="senha"
-          className={styles.campo}
-          name="password"
+          rotulo="Senha"
           type="password"
           autoComplete="current-password"
-          required
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
+          erro={errors.senha?.message}
+          {...register("senha")}
         />
 
-        <button className={styles.botao} type="submit" disabled={enviando}>
-          {enviando ? "Entrando…" : "Entrar"}
+        <button className={styles.botao} type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Entrando…" : "Entrar"}
         </button>
       </form>
     </main>
