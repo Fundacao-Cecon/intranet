@@ -15,6 +15,11 @@ return [
     'login_ip_max_attempts' => (int) env('INTRANET_LOGIN_IP_MAX_ATTEMPTS', 30),
     'login_lockout_minutes' => (int) env('INTRANET_LOGIN_LOCKOUT_MINUTES', 15),
 
+    // Alerta por usuário (T021): não bloqueia ninguém; só avisa o administrador, pelo log, quando
+    // um mesmo login acumula falhas demais (somando todos os IPs) na janela.
+    'login_alert_attempts' => (int) env('INTRANET_LOGIN_ALERT_ATTEMPTS', 20),
+    'login_alert_window_minutes' => (int) env('INTRANET_LOGIN_ALERT_WINDOW_MINUTES', 60),
+
     // Sessão: tempo máximo sem uso e tempo máximo desde o login, mesmo com uso contínuo (segundos).
     'session_idle' => (int) env('INTRANET_SESSION_IDLE', 28800),      // 8 h
     'session_absolute' => (int) env('INTRANET_SESSION_ABSOLUTE', 43200), // 12 h

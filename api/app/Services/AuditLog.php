@@ -25,15 +25,16 @@ final class AuditLog
     }
 
     /**
-     * Grava só uma vez por janela para o mesmo IP e detalhe (evita inundar o log durante um
-     * bloqueio). Devolve true se gravou.
+     * Grava só uma vez por janela para o mesmo detalhe (evita inundar o log). Por padrão a
+     * chave inclui o IP; com `$porIp = false` vale para o sistema todo (alerta de um login
+     * atacado por vários IPs). Devolve true se gravou.
      */
-    public function recordOnce(string $acao, string $detalhe, ?string $usuario, int $janelaMinutos): bool
+    public function recordOnce(string $acao, string $detalhe, ?string $usuario, int $janelaMinutos, bool $porIp = true): bool
     {
         $detalhe = mb_substr($detalhe, 0, self::DETAIL_MAX);
         $existe = DB::table('logs')
             ->where('acao', $acao)
-            ->where('ip', request()->ip() ?? 'cli')
+            ->when($porIp, fn ($q) => $q->where('ip', request()->ip() ?? 'cli'))
             ->where('detalhe', $detalhe)
             ->whereRaw("data_hora > DATETIME('now', 'localtime', ?)", ['-'.max(1, $janelaMinutos).' minutes'])
             ->exists();

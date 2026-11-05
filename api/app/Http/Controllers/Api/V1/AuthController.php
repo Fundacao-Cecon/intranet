@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Hash;
 
 /**
  * Login, logout e "quem sou eu" da SPA (Sanctum por cookie de sessão, mesmo domínio).
- * Limitador por usuário+IP e por IP: T020. Alerta, senha temporária, troca de senha e caixa do login
- * entram nas tarefas T021 a T025.
+ * Limitador por usuário+IP e por IP: T020. Alerta por usuário (LOGIN_ALERTA, sem bloquear): T021.
+ * Senha temporária, troca de senha e caixa do login entram nas tarefas T022 a T025.
  */
 class AuthController extends Controller
 {
@@ -56,7 +56,16 @@ class AuthController extends Controller
 
         $ok = Hash::check($data['password'], $user->password ?? self::DUMMY_HASH);
         if (! $user || ! $ok) {
-            $audit->record('LOGIN_FALHA', $audit->label($data['username'], $user), 'Visitante');
+            $label = $audit->label($data['username'], $user);
+            $audit->record('LOGIN_FALHA', $label, 'Visitante');
+
+            // Alerta (T021): muitas falhas contra o mesmo login, de IPs variados. Só avisa pelo
+            // log, sem bloquear: um estranho não pode travar a conta do dono.
+            $limite = (int) config('intranet.login_alert_attempts');
+            $janela = (int) config('intranet.login_alert_window_minutes');
+            if ($throttle->userFailures($data['username']) >= $limite) {
+                $audit->recordOnce('LOGIN_ALERTA', "{$limite} ou mais falhas em {$janela} min contra {$label}", 'Visitante', $janela, porIp: false);
+            }
 
             return response()->json(['message' => 'Usuário ou senha incorretos.'], 422);
         }
