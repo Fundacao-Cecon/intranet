@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\SenhaForte;
 use App\Services\AuditLog;
 use App\Services\LoginThrottle;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Login, logout e "quem sou eu" da SPA (Sanctum por cookie de sessão, mesmo domínio).
@@ -96,6 +100,52 @@ class AuthController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        return response()->noContent();
+    }
+
+    /**
+     * Troca da própria senha (T022 e T024). Adivinhar a senha atual divide o limitador do login;
+     * a política vale para a nova; as OUTRAS sessões do usuário caem e a atual continua.
+     */
+    public function changePassword(Request $request, AuditLog $audit, LoginThrottle $throttle): Response|JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $ip = $request->ip() ?? 'cli';
+
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'max:1024'],
+            'password' => ['required', 'string'],
+        ]);
+
+        if (! $throttle->reserve($user->username, $ip)) {
+            return response()->json(['message' => 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'], 429)
+                ->header('Retry-After', (string) $throttle->retryAfter($user->username, $ip));
+        }
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            // A tentativa reservada fica gravada como falha.
+            throw ValidationException::withMessages(['current_password' => 'A senha atual está incorreta.']);
+        }
+
+        // Senha atual certa: não é um chute, então não conta como falha mesmo que a nova seja recusada.
+        $throttle->clear($user->username, $ip);
+
+        Validator::make($data, ['password' => [
+            new SenhaForte($user->username),
+            fn (string $atributo, mixed $valor, Closure $fail) => Hash::check((string) $valor, $user->password)
+                ? $fail('A nova senha precisa ser diferente da atual.')
+                : null,
+        ]])->validate();
+
+        // Grava a nova senha. As OUTRAS sessões caem sozinhas: o login já deixa na sessão o HMAC do
+        // hash da senha e o AuthenticateSession do Sanctum recusa quem ficou com o hash antigo. A
+        // sessão ATUAL é atualizada pelo próprio AuthenticateSession ao fim desta resposta.
+        $user->forceFill(['password' => Hash::make($data['password'])])->save();
+        $request->session()->regenerate();
+
+        $audit->record('SENHA', "Alterou a própria senha: {$user->username}", $user->username);
 
         return response()->noContent();
     }
