@@ -8,7 +8,8 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:proxy": "node scripts/dev-proxy.mjs"
   },
   "dependencies": {
     "next": "16.4.3",
