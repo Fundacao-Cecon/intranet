@@ -169,4 +169,26 @@ Pontos totais: **266** (8 já concluídos hoje, de 14 da Sprint 0). Até o 1.0.0
 
 ## Retrospectivas
 
-_Nenhuma ainda. Registre aqui, ao fim de cada sprint: o que funcionou, o que não funcionou, até 3 ações com responsável e prazo._
+_Registre aqui, ao fim de cada sprint: o que funcionou, o que não funcionou, até 3 ações com responsável e prazo._
+
+### Sprint 1 — Fundação (revisada em 05/11/2026)
+
+**Resultado:** 9 tarefas e 25 pontos entregues (T010 a T018). Verificado em máquina limpa: Pest 43 testes, Pint e Larastan limpos; web com ESLint, `tsc`, Vitest e build verdes; CI do PR #6 com 11 checks verdes. Velocidade da sprint: **25 pontos**.
+
+**Meta:** atingida em parte. CI verde, esquema adotado e login pela API estão prontos; o login **a partir do Next** não existe ainda (a `web/` é só a página inicial padrão). Ele pertence ao T027, da Sprint 2.
+
+**Funcionou**
+- Teste primeiro e CI por pasta: o legado seguiu verde durante toda a sprint.
+- Login com hash fictício, regeneração de sessão e log sem texto digitado, no mesmo formato do legado.
+
+**Não funcionou**
+- A meta da sprint prometia o Next, mas o plano só entregava a API.
+- O quadro ficou desatualizado (tarefas prontas em "Em revisão").
+- Não há registro de autorrevisão (`/code-review`) no PR, como pede a Definição de Pronto.
+
+**Ações**
+1. Escrever as metas de sprint a partir do que as tarefas entregam de fato. Responsável: quem planeja a sprint. Prazo: planejamento da Sprint 2.
+2. Mover as tarefas no `kanban.md` junto de cada merge. Responsável: quem faz o merge. Prazo: contínuo.
+3. Rodar `/code-review` antes de pedir aprovação e registrar no PR. Responsável: quem abre o PR. Prazo: a partir da Sprint 2.
+
+**Atenção para a Sprint 2:** a API não deve ser exposta pelo proxy antes do T020 (limitador de login); `POST /api/v1/auth/login` aceita tentativas ilimitadas.

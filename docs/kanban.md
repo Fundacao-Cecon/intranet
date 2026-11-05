@@ -1,6 +1,6 @@
 # Kanban — Intranet FCECON
 
-Retrato do quadro em **26/10/2026** (Sprint 0 em andamento). O quadro vivo, com arrastar e soltar, está no artefato "Kanban da Intranet" publicado na sessão; este arquivo é o registro versionado. Processo e cerimônias: [scrum.md](scrum.md). Plano: [roadmap.md](roadmap.md).
+Retrato do quadro em **05/11/2026** (Sprint 1 revisada e aceita; Sprint 2 a iniciar). O quadro vivo, com arrastar e soltar, está no artefato "Kanban da Intranet" publicado na sessão; este arquivo é o registro versionado. Processo e cerimônias: [scrum.md](scrum.md). Plano: [roadmap.md](roadmap.md).
 
 ## Como ler
 
@@ -16,8 +16,8 @@ Retrato do quadro em **26/10/2026** (Sprint 0 em andamento). O quadro vivo, com 
 | Backlog do produto | 58 | 227 |
 | Backlog da sprint | 1 | 1 |
 | Em andamento | 0 | 0 |
-| Em revisão | 10 | 29 |
-| Concluído | 4 | 9 |
+| Em revisão | 2 | 5 |
+| Concluído | 12 | 33 |
 | **Total** | **73** | **266** |
 
 ## Sprints
@@ -119,14 +119,6 @@ _Vazia._
 |---|:-:|---|---|--:|---|
 | T004 | S0 | E0 Documentação e 0.2.1 | Escrever roadmap, transição, Scrum e kanban | 3 | docs |
 | T005 | S0 | E0 Documentação e 0.2.1 | Ajustar ADRs 0003, 0004 e 0007, README, pendências e estratégia de testes | 2 | docs |
-| T011 | S1 | E1 Fundação e login | Criar api/ (Laravel 13) e web/ (Next 16, exportação estática) | 3 | infra — api/ Laravel 13.39 e web/ Next 16.4.3 (export estático, basePath /novo); build e testes padrão verdes |
-| T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra — api.yml (Pest 8.3/8.4, Pint, Larastan 6, audit), web.yml (ESLint, tsc, Vitest, build, audit), legado com filtro de pasta; tudo verde local; workflows ainda não rodaram no GitHub |
-| T013 | S1 | E1 Fundação e login | Migration baseline que adota o esquema atual, com SQLite em WAL | 5 | feature — Baseline idempotente + WAL, busy_timeout 15 s, IMMEDIATE; 5 testes (esquema igual ao do legado, dados preservados, coexistência) |
-| T014 | S1 | E1 Fundação e login | Sanctum SPA: login, logout e me, com testes Pest | 5 | feature — Sanctum 4.3 por cookie + CSRF; /api/v1/auth/login, logout, me; 16 testes Pest; conferido por HTTP real |
-| T015 | S1 | E1 Fundação e login | Auditoria: tabela logs e retenção de 180 dias | 2 | feature — AuditLog no formato do legado (LOGIN, LOGIN_FALHA sem texto digitado), intranet:logs-purge diário, retenção 180 dias; 8 testes |
-| T016 | S1 | E1 Fundação e login | Sessão: ociosa de 8 h e teto absoluto de 12 h (middleware) | 3 | segurança — Middleware: 8 h ociosa e 12 h absoluta, 401 session_expired, login após expirar funciona; 9 testes com mutação verificada |
-| T017 | S1 | E1 Fundação e login | Dependabot ou Renovate para api/ e web/ | 1 | infra — .github/dependabot.yml: composer /api, npm /web e /tests/js, github-actions; semanal/mensal para develop |
-| T018 | S1 | E1 Fundação e login | GET /api/v1/health e logs de aplicação em JSON | 2 | infra — GET /api/v1/health (200 ok / 503 degraded, sem dados sensíveis) e canal de log json diário; 5 testes |
 
 ## Concluído
 
@@ -136,3 +128,11 @@ _Vazia._
 | T002 | S0 | E0 Documentação e 0.2.1 | Avaliar a stack e registrar a ADR 0008 | 3 | docs — Laravel + Next.js em fatias |
 | T003 | S0 | E0 Documentação e 0.2.1 | Gerar a matriz de paridade dos testes | 2 | docs — 189 testes PHP e 44 declarações JS |
 | T010 | S1 | E1 Fundação e login | Instalar Composer e Node 24 LTS | 1 | infra — Node 24.20 já estava instalado; Composer 2.10.3 (SHA-256 conferido) em D:/php/tools |
+| T011 | S1 | E1 Fundação e login | Criar api/ (Laravel 13) e web/ (Next 16, exportação estática) | 3 | infra — api/ Laravel 13.39 e web/ Next 16.4.3 (export estático, basePath /novo); build e testes padrão verdes |
+| T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra — api.yml (Pest 8.3/8.4, Pint, Larastan 6, audit), web.yml (ESLint, tsc, Vitest, build, audit), legado com filtro de pasta; tudo verde local; workflows ainda não rodaram no GitHub |
+| T013 | S1 | E1 Fundação e login | Migration baseline que adota o esquema atual, com SQLite em WAL | 5 | feature — Baseline idempotente + WAL, busy_timeout 15 s, IMMEDIATE; 5 testes (esquema igual ao do legado, dados preservados, coexistência) |
+| T014 | S1 | E1 Fundação e login | Sanctum SPA: login, logout e me, com testes Pest | 5 | feature — Sanctum 4.3 por cookie + CSRF; /api/v1/auth/login, logout, me; 16 testes Pest; conferido por HTTP real |
+| T015 | S1 | E1 Fundação e login | Auditoria: tabela logs e retenção de 180 dias | 2 | feature — AuditLog no formato do legado (LOGIN, LOGIN_FALHA sem texto digitado), intranet:logs-purge diário, retenção 180 dias; 8 testes |
+| T016 | S1 | E1 Fundação e login | Sessão: ociosa de 8 h e teto absoluto de 12 h (middleware) | 3 | segurança — Middleware: 8 h ociosa e 12 h absoluta, 401 session_expired, login após expirar funciona; 9 testes com mutação verificada |
+| T017 | S1 | E1 Fundação e login | Dependabot ou Renovate para api/ e web/ | 1 | infra — .github/dependabot.yml: composer /api, npm /web e /tests/js, github-actions; semanal/mensal para develop |
+| T018 | S1 | E1 Fundação e login | GET /api/v1/health e logs de aplicação em JSON | 2 | infra — GET /api/v1/health (200 ok / 503 degraded, sem dados sensíveis) e canal de log json diário; 5 testes |
