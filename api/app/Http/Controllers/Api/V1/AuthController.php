@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLog;
+use App\Services\LoginThrottle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -14,7 +15,8 @@ use Illuminate\Support\Facades\Hash;
 
 /**
  * Login, logout e "quem sou eu" da SPA (Sanctum por cookie de sessão, mesmo domínio).
- * Limitador, alerta, senha temporária e teto de sessão entram nas tarefas T020 a T025 e T016.
+ * Limitador por usuário+IP e por IP: T020. Alerta, senha temporária, troca de senha e caixa do login
+ * entram nas tarefas T021 a T025.
  */
 class AuthController extends Controller
 {
@@ -25,7 +27,7 @@ class AuthController extends Controller
      */
     private const DUMMY_HASH = '$2y$10$VHvJoBNQ3REF96YP9b/vnOqqwi7d.zFLi1OCi0RDqW1cOM2jief8W';
 
-    public function login(Request $request, AuditLog $audit): JsonResponse
+    public function login(Request $request, AuditLog $audit, LoginThrottle $throttle): JsonResponse
     {
         // Origem fora de SANCTUM_STATEFUL_DOMAINS: a rota não ganha sessão. Recusa com clareza
         // em vez de estourar 500 mais adiante.
@@ -40,6 +42,17 @@ class AuthController extends Controller
 
         /** @var User|null $user */
         $user = User::where('username', $data['username'])->first();
+        $ip = $request->ip() ?? 'cli';
+
+        // Limitador em camadas (T020): reserva a tentativa antes de gastar tempo no bcrypt. A
+        // resposta bloqueada não depende de o usuário existir, então não enumera contas.
+        if (! $throttle->reserve($data['username'], $ip)) {
+            $minutos = (int) config('intranet.login_lockout_minutes');
+            $audit->recordOnce('LOGIN_BLOQUEADO', $audit->label($data['username'], $user), 'Visitante', $minutos);
+
+            return response()->json(['message' => 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'], 429)
+                ->header('Retry-After', (string) $throttle->retryAfter($data['username'], $ip));
+        }
 
         $ok = Hash::check($data['password'], $user->password ?? self::DUMMY_HASH);
         if (! $user || ! $ok) {
@@ -47,6 +60,8 @@ class AuthController extends Controller
 
             return response()->json(['message' => 'Usuário ou senha incorretos.'], 422);
         }
+
+        $throttle->clear($data['username'], $ip);
 
         // Hash antigo ou de outro custo: regrava no custo atual (o legado continua verificando).
         if (Hash::needsRehash($user->password)) {

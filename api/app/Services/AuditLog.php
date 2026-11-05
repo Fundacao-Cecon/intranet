@@ -24,6 +24,29 @@ final class AuditLog
         ]);
     }
 
+    /**
+     * Grava só uma vez por janela para o mesmo IP e detalhe (evita inundar o log durante um
+     * bloqueio). Devolve true se gravou.
+     */
+    public function recordOnce(string $acao, string $detalhe, ?string $usuario, int $janelaMinutos): bool
+    {
+        $detalhe = mb_substr($detalhe, 0, self::DETAIL_MAX);
+        $existe = DB::table('logs')
+            ->where('acao', $acao)
+            ->where('ip', request()->ip() ?? 'cli')
+            ->where('detalhe', $detalhe)
+            ->whereRaw("data_hora > DATETIME('now', 'localtime', ?)", ['-'.max(1, $janelaMinutos).' minutes'])
+            ->exists();
+
+        if ($existe) {
+            return false;
+        }
+
+        $this->record($acao, $detalhe, $usuario);
+
+        return true;
+    }
+
     /** Apaga os registros com mais de $days dias (no mínimo 1). Devolve quantos apagou. */
     public function purge(int $days): int
     {

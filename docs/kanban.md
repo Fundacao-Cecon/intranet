@@ -13,10 +13,10 @@ Retrato do quadro em **05/11/2026** (Sprint 1 revisada e aceita; Sprint 2 a inic
 
 | Coluna | Tarefas | Pontos |
 |---|--:|--:|
-| Backlog do produto | 58 | 227 |
+| Backlog do produto | 57 | 222 |
 | Backlog da sprint | 1 | 1 |
 | Em andamento | 0 | 0 |
-| Em revisão | 2 | 5 |
+| Em revisão | 3 | 10 |
 | Concluído | 12 | 33 |
 | **Total** | **73** | **266** |
 
@@ -44,7 +44,6 @@ Os pontos são hipótese de planejamento: recalibre com a velocidade real depois
 
 | Id | Sprint | Épico | Tarefa | Pts | Tipo e nota |
 |---|:-:|---|---|--:|---|
-| T020 | S2 | E1 Fundação e login | Limitador de login em camadas (usuário+IP e IP) com hash fictício | 5 | segurança |
 | T021 | S2 | E1 Fundação e login | Alerta por usuário (LOGIN_ALERTA) sem bloquear o dono da conta | 2 | segurança |
 | T022 | S2 | E1 Fundação e login | Trocar a senha derruba as outras sessões | 2 | segurança |
 | T023 | S2 | E1 Fundação e login | Senha temporária: must_change_password e tela de troca | 3 | segurança |
@@ -119,6 +118,7 @@ _Vazia._
 |---|:-:|---|---|--:|---|
 | T004 | S0 | E0 Documentação e 0.2.1 | Escrever roadmap, transição, Scrum e kanban | 3 | docs |
 | T005 | S0 | E0 Documentação e 0.2.1 | Ajustar ADRs 0003, 0004 e 0007, README, pendências e estratégia de testes | 2 | docs |
+| T020 | S2 | E1 Fundação e login | Limitador de login em camadas (usuário+IP e IP) com hash fictício | 5 | segurança — Serviço LoginThrottle: reserva atômica por INSERT condicional (usuário+IP 5/15 min, IP 30/15 min), 429 com Retry-After, LOGIN_BLOQUEADO uma vez por janela, login certo zera o par; 13 testes Pest, 4 mutações detectadas. **Antes de expor a API atrás de proxy:** configurar proxies confiáveis (senão todos aparecem com o IP do proxy e o limite por IP bloqueia todos) |
 
 ## Concluído
 
