@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -7,7 +7,7 @@ import { Intranet } from "./Intranet";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api")>();
-  return { ...real, me: vi.fn(), login: vi.fn(), logout: vi.fn() };
+  return { ...real, me: vi.fn(), login: vi.fn(), logout: vi.fn(), trocarSenha: vi.fn() };
 });
 
 const ana = { id: 7, username: "ana", role: "user" };
@@ -94,5 +94,51 @@ describe("Intranet", () => {
     render(<Intranet avisoInicial="Sua sessão expirou. Entre novamente." />);
 
     expect(await screen.findByText("Sua sessão expirou. Entre novamente.")).toBeInTheDocument();
+  });
+});
+
+describe("Intranet: troca de senha", () => {
+  test("o painel tem o botão Trocar senha, que abre a tela, e Voltar fecha", async () => {
+    vi.mocked(api.me).mockResolvedValue(ana);
+    render(<Intranet />);
+    const u = userEvent.setup();
+
+    await u.click(await screen.findByRole("button", { name: "Trocar senha" }));
+    expect(await screen.findByLabelText("Nova senha")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Olá, ana/ })).not.toBeInTheDocument();
+
+    await u.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(await screen.findByRole("heading", { name: /Olá, ana/ })).toBeInTheDocument();
+  });
+
+  test("trocar a senha chama a API com a atual e a nova", async () => {
+    vi.mocked(api.me).mockResolvedValue(ana);
+    vi.mocked(api.trocarSenha).mockResolvedValue(undefined);
+    render(<Intranet />);
+    const u = userEvent.setup();
+
+    await u.click(await screen.findByRole("button", { name: "Trocar senha" }));
+    await u.type(await screen.findByLabelText("Senha atual"), "atual-1");
+    await u.type(screen.getByLabelText("Nova senha"), "Tr0ca-Segura-2026");
+    await u.type(screen.getByLabelText("Confirmar nova senha"), "Tr0ca-Segura-2026");
+    await u.click(screen.getByRole("button", { name: "Trocar senha" }));
+
+    await waitFor(() => expect(api.trocarSenha).toHaveBeenCalledWith("atual-1", "Tr0ca-Segura-2026"));
+  });
+
+  test("sessão expirada durante a troca volta ao login com aviso", async () => {
+    vi.mocked(api.me).mockResolvedValue(ana);
+    vi.mocked(api.trocarSenha).mockRejectedValue(new api.ApiError(401, "Sua sessão expirou.", "session_expired"));
+    render(<Intranet />);
+    const u = userEvent.setup();
+
+    await u.click(await screen.findByRole("button", { name: "Trocar senha" }));
+    await u.type(await screen.findByLabelText("Senha atual"), "atual-1");
+    await u.type(screen.getByLabelText("Nova senha"), "Tr0ca-Segura-2026");
+    await u.type(screen.getByLabelText("Confirmar nova senha"), "Tr0ca-Segura-2026");
+    await u.click(screen.getByRole("button", { name: "Trocar senha" }));
+
+    expect(await screen.findByLabelText("Usuário")).toBeInTheDocument();
+    expect(screen.getByText(/sessão expirou/i)).toBeInTheDocument();
   });
 });

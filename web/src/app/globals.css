@@ -14,6 +14,8 @@
   --erro-fundo: #fdecec;
   --aviso-texto: #7a4a00;
   --aviso-fundo: #fff4e0;
+  --ok-texto: #1b5e20;
+  --ok-fundo: #e8f5e9;
 }
 
 :root[data-tema="escuro"] {
@@ -30,6 +32,8 @@
   --erro-fundo: #3a1c1c;
   --aviso-texto: #ffd699;
   --aviso-fundo: #3a2a10;
+  --ok-texto: #a5d6a7;
+  --ok-fundo: #1b3a1f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,6 +51,8 @@
     --erro-fundo: #3a1c1c;
     --aviso-texto: #ffd699;
     --aviso-fundo: #3a2a10;
+    --ok-texto: #a5d6a7;
+    --ok-fundo: #1b3a1f;
   }
 }
 

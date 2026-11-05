@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ApiError, login, logout, me } from "./api";
+import { ApiError, login, logout, me, trocarSenha } from "./api";
 
 type Resposta = { status: number; corpo?: unknown; cabecalhos?: Record<string, string>; aoChamar?: () => void };
 
@@ -156,5 +156,55 @@ describe("logout", () => {
 
     expect(chamadas[0].url).toBe("/api/v1/auth/logout");
     expect((chamadas[0].init.headers as Record<string, string>)["X-XSRF-TOKEN"]).toBe("tk");
+  });
+});
+
+
+describe("trocarSenha", () => {
+  test("faz POST com CSRF e os nomes de campo da API, e aceita 204", async () => {
+    definirXsrf("tk")();
+    const chamadas = simularApi([{ status: 204 }]);
+
+    await expect(trocarSenha("atual-1", "Tr0ca-Segura-2026")).resolves.toBeUndefined();
+
+    expect(chamadas[0].url).toBe("/api/v1/auth/password");
+    expect(chamadas[0].init.method).toBe("POST");
+    expect((chamadas[0].init.headers as Record<string, string>)["X-XSRF-TOKEN"]).toBe("tk");
+    expect(JSON.parse(chamadas[0].init.body as string)).toEqual({ current_password: "atual-1", password: "Tr0ca-Segura-2026" });
+  });
+
+  test("422 de validação traz os erros por campo", async () => {
+    definirXsrf("tk")();
+    simularApi([
+      {
+        status: 422,
+        corpo: {
+          message: "A senha atual está incorreta.",
+          errors: { current_password: ["A senha atual está incorreta."], password: ["Essa senha é muito comum.", "Evite sequências."] },
+        },
+      },
+    ]);
+
+    const erro = await trocarSenha("x", "y").catch((e) => e);
+
+    expect(erro).toBeInstanceOf(ApiError);
+    expect(erro).toMatchObject({
+      status: 422,
+      erros: { current_password: ["A senha atual está incorreta."], password: ["Essa senha é muito comum.", "Evite sequências."] },
+    });
+  });
+
+  test("429 carrega o Retry-After", async () => {
+    definirXsrf("tk")();
+    simularApi([{ status: 429, corpo: { message: "Muitas tentativas." }, cabecalhos: { "Retry-After": "300" } }]);
+
+    await expect(trocarSenha("x", "y")).rejects.toMatchObject({ status: 429, retryAfter: 300 });
+  });
+
+  test("401 (sessão expirada) vira ApiError 401 com o código da API", async () => {
+    definirXsrf("tk")();
+    simularApi([{ status: 401, corpo: { message: "Sua sessão expirou.", code: "session_expired" } }]);
+
+    await expect(trocarSenha("x", "y")).rejects.toMatchObject({ status: 401, code: "session_expired" });
   });
 });

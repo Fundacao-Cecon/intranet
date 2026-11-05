@@ -60,3 +60,26 @@ describe("CampoTexto", () => {
     expect(screen.getByLabelText("Usuário")).toHaveAttribute("aria-describedby", "usuario-erro");
   });
 });
+
+describe("CampoTexto: dica", () => {
+  test("a dica descreve o campo, mesmo sem erro", () => {
+    render(<CampoTexto id="nova" rotulo="Nova senha" dica="Use pelo menos 10 caracteres." />);
+
+    expect(screen.getByLabelText("Nova senha")).toHaveAttribute("aria-describedby", "nova-dica");
+    expect(screen.getByLabelText("Nova senha")).toHaveAccessibleDescription("Use pelo menos 10 caracteres.");
+  });
+
+  test("com dica e erro, os dois descrevem o campo (dica primeiro)", () => {
+    render(<CampoTexto id="nova" rotulo="Nova senha" dica="Use pelo menos 10 caracteres." erro="Informe a nova senha." />);
+
+    const campo = screen.getByLabelText("Nova senha");
+    expect(campo).toHaveAttribute("aria-describedby", "nova-dica nova-erro");
+    expect(campo).toHaveAccessibleDescription("Use pelo menos 10 caracteres. Informe a nova senha.");
+  });
+
+  test("a dica não é um alerta", () => {
+    render(<CampoTexto id="nova" rotulo="Nova senha" dica="Dica." />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});

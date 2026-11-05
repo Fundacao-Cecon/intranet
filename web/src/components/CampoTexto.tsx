@@ -5,6 +5,8 @@ import styles from "./Intranet.module.css";
 type Props = ComponentProps<"input"> & {
   id: string;
   rotulo: string;
+  /** Texto de ajuda sempre visível (por exemplo, a regra da senha). */
+  dica?: string;
   /** Mensagem de erro de preenchimento deste campo (vem do esquema Zod). */
   erro?: string;
 };
@@ -17,8 +19,11 @@ type Props = ComponentProps<"input"> & {
  * No React 19 o `ref` chega como propriedade comum, então o `register()` do React Hook Form
  * passa direto pelo espalhamento.
  */
-export function CampoTexto({ id, rotulo, erro, ...resto }: Props) {
+export function CampoTexto({ id, rotulo, dica, erro, ...resto }: Props) {
   const idErro = `${id}-erro`;
+  const idDica = `${id}-dica`;
+  // O erro e a dica descrevem o campo juntos; sem nenhum dos dois, vale o que o chamador passou.
+  const descricao = [dica ? idDica : null, erro ? idErro : null].filter(Boolean).join(" ") || resto["aria-describedby"];
 
   return (
     <>
@@ -31,8 +36,13 @@ export function CampoTexto({ id, rotulo, erro, ...resto }: Props) {
         {...resto}
         id={id}
         aria-invalid={erro ? true : undefined}
-        aria-describedby={erro ? idErro : resto["aria-describedby"]}
+        aria-describedby={descricao}
       />
+      {dica && (
+        <p id={idDica} className={styles.dica}>
+          {dica}
+        </p>
+      )}
       {erro && (
         <p id={idErro} className={styles.erroCampo}>
           {erro}
