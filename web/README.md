@@ -42,6 +42,7 @@ Variáveis do proxy: `PORT` (padrão 8080) e `API_URL` (padrão `http://127.0.0.
 
 Todo formulário novo usa **React Hook Form** (estado, envio e foco no primeiro erro) com um esquema **Zod** em `src/lib/validacao.ts` (via `@hookform/resolvers`). Regras:
 
+- Importe de **`zod/mini`**, não de `zod`: a API em funções (`.check(z.trim(), z.minLength(1, "..."))`) pesa cerca de 15 KB gzip a menos no JS da tela de login. A ordem dos checks importa (aparar antes de exigir o tamanho).
 - O esquema é só conforto: a regra de verdade (credenciais, limites, política de senha) fica na API (ADR 0008). Use os mesmos limites que ela.
 - O formulário leva `noValidate` (a validação é a nossa, com mensagens em português) e cada campo com erro recebe `aria-invalid` e `aria-describedby` apontando para a mensagem.
 - Erros que vêm da API ficam em um alerta separado (`role="alert"`), sem marcar campos.

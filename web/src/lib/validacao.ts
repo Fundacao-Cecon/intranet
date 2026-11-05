@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod/mini";
 
 /**
  * Validação do formulário de login, só para dar resposta imediata ao usuário. Quem decide é a
@@ -6,16 +6,19 @@ import { z } from "zod";
  * política de senha (10 caracteres, lista de proibidas: T024) nem checagem de formato do login.
  *
  * Os limites (255 e 1024) são os mesmos da API (AuthController::login).
+ *
+ * Usa `zod/mini` (API em funções, bem menor no pacote do navegador que o `zod` completo).
  */
 export const esquemaLogin = z.object({
   // O login é aparado: um espaço digitado sem querer não deve fazer a entrada falhar.
+  // A ordem dos checks importa: aparar antes de exigir o tamanho mínimo.
   usuario: z
     .string({ error: "Informe o usuário." })
-    .trim()
-    .min(1, "Informe o usuário.")
-    .max(255, "O usuário é longo demais."),
+    .check(z.trim(), z.minLength(1, "Informe o usuário."), z.maxLength(255, "O usuário é longo demais.")),
   // A senha NUNCA é aparada: espaços podem fazer parte dela.
-  senha: z.string({ error: "Informe a senha." }).min(1, "Informe a senha.").max(1024, "A senha é longa demais."),
+  senha: z
+    .string({ error: "Informe a senha." })
+    .check(z.minLength(1, "Informe a senha."), z.maxLength(1024, "A senha é longa demais.")),
 });
 
 export type DadosLogin = z.infer<typeof esquemaLogin>;
