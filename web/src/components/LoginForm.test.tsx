@@ -131,6 +131,76 @@ describe("LoginForm", () => {
     await waitFor(() => expect(aoEntrar).toHaveBeenCalled());
   });
 
+  describe("validação no formulário (React Hook Form + Zod)", () => {
+    test("enviar vazio mostra um erro por campo e não chama a API", async () => {
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Entrar" }));
+
+      expect(await screen.findByText("Informe o usuário.")).toBeInTheDocument();
+      expect(screen.getByText("Informe a senha.")).toBeInTheDocument();
+      expect(entrar).not.toHaveBeenCalled();
+    });
+
+    test("o erro é acessível: campo marcado como inválido, ligado à mensagem, e o foco vai ao primeiro inválido", async () => {
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Entrar" }));
+
+      const usuario = screen.getByLabelText("Usuário");
+      const senha = screen.getByLabelText("Senha");
+      await waitFor(() => expect(usuario).toHaveFocus());
+      expect(usuario).toHaveAttribute("aria-invalid", "true");
+      expect(usuario).toHaveAccessibleDescription("Informe o usuário.");
+      expect(senha).toHaveAttribute("aria-invalid", "true");
+      expect(senha).toHaveAccessibleDescription("Informe a senha.");
+    });
+
+    test("campos válidos não ficam marcados como inválidos", () => {
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      expect(screen.getByLabelText("Usuário")).not.toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByLabelText("Usuário")).toHaveAccessibleDescription("");
+    });
+
+    test("a mensagem some assim que o campo é corrigido (revalida ao digitar)", async () => {
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+      const u = userEvent.setup();
+      await u.click(screen.getByRole("button", { name: "Entrar" }));
+      expect(await screen.findByText("Informe o usuário.")).toBeInTheDocument();
+
+      await u.type(screen.getByLabelText("Usuário"), "ana");
+
+      await waitFor(() => expect(screen.queryByText("Informe o usuário.")).not.toBeInTheDocument());
+      expect(screen.getByText("Informe a senha.")).toBeInTheDocument(); // o outro campo segue pendente
+    });
+
+    test("o usuário vai para a API sem espaços nas pontas; a senha vai exatamente como digitada", async () => {
+      entrar.mockResolvedValue(ana);
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      await preencher("  ana  ", "  s e g  ");
+
+      await waitFor(() => expect(entrar).toHaveBeenCalledWith("ana", "  s e g  "));
+    });
+
+    test("erro vindo da API continua em alerta separado, sem marcar os campos como inválidos", async () => {
+      entrar.mockRejectedValue(new ApiError(422, "Usuário ou senha incorretos."));
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      await preencher("ana", "errada");
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Usuário ou senha incorretos.");
+      expect(screen.getByLabelText("Usuário")).not.toHaveAttribute("aria-invalid", "true");
+    });
+
+    test("o formulário usa a validação própria, não a do navegador (noValidate)", () => {
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      expect(screen.getByRole("form", { name: /Intranet FCECON/ })).toHaveAttribute("novalidate");
+    });
+  });
+
   test("o aviso informado pelo pai (sessão expirada) aparece como status", () => {
     render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} aviso="Sua sessão expirou. Entre novamente." />);
 

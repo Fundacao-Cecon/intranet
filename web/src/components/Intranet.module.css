@@ -85,3 +85,13 @@
   background: var(--aviso-fundo);
   border-color: var(--aviso-texto);
 }
+
+/* Erro de preenchimento de um campo (texto ligado ao campo por aria-describedby). */
+.erroCampo {
+  color: var(--erro-texto);
+  font-size: 0.9rem;
+}
+
+.campo[aria-invalid="true"] {
+  border-color: var(--erro-texto);
+}

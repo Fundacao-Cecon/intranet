@@ -1,8 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
 import { ApiError, type Usuario } from "@/lib/api";
+import { type DadosLogin, esquemaLogin } from "@/lib/validacao";
 import styles from "./Intranet.module.css";
 
 type Props = {
@@ -27,28 +30,39 @@ function mensagemDeErro(erro: unknown): string {
 }
 
 export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
-  const [usuario, setUsuario] = useState("");
-  const [senha, setSenha] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  // Erro que veio da API (senha errada, bloqueio, rede). Os erros de preenchimento são do RHF.
   const [erro, setErro] = useState<string | null>(null);
 
-  async function enviar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    if (enviando) return;
-    setEnviando(true);
+  const {
+    register,
+    handleSubmit,
+    resetField,
+    setFocus,
+    formState: { errors, isSubmitting },
+  } = useForm<DadosLogin>({
+    resolver: zodResolver(esquemaLogin),
+    defaultValues: { usuario: "", senha: "" },
+  });
+
+  async function enviar({ usuario, senha }: DadosLogin) {
     setErro(null);
     try {
       aoEntrar(await entrar(usuario, senha));
     } catch (e) {
       setErro(mensagemDeErro(e));
-      setSenha(""); // a senha digitada não fica na tela nem no estado
-      setEnviando(false);
+      resetField("senha"); // a senha digitada não fica na tela nem no estado
+      setFocus("senha");
     }
   }
 
   return (
     <main className={styles.centro}>
-      <form className={styles.cartao} onSubmit={enviar} aria-labelledby="titulo-login">
+      <form
+        className={styles.cartao}
+        onSubmit={handleSubmit(enviar)}
+        aria-labelledby="titulo-login"
+        noValidate
+      >
         <h1 id="titulo-login" className={styles.titulo}>
           Intranet FCECON
         </h1>
@@ -71,15 +85,20 @@ export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
         <input
           id="usuario"
           className={styles.campo}
-          name="username"
           type="text"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          required
-          value={usuario}
-          onChange={(e) => setUsuario(e.target.value)}
+          aria-required="true"
+          aria-invalid={errors.usuario ? true : undefined}
+          aria-describedby={errors.usuario ? "usuario-erro" : undefined}
+          {...register("usuario")}
         />
+        {errors.usuario && (
+          <p id="usuario-erro" className={styles.erroCampo}>
+            {errors.usuario.message}
+          </p>
+        )}
 
         <label className={styles.rotulo} htmlFor="senha">
           Senha
@@ -87,16 +106,21 @@ export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
         <input
           id="senha"
           className={styles.campo}
-          name="password"
           type="password"
           autoComplete="current-password"
-          required
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
+          aria-required="true"
+          aria-invalid={errors.senha ? true : undefined}
+          aria-describedby={errors.senha ? "senha-erro" : undefined}
+          {...register("senha")}
         />
+        {errors.senha && (
+          <p id="senha-erro" className={styles.erroCampo}>
+            {errors.senha.message}
+          </p>
+        )}
 
-        <button className={styles.botao} type="submit" disabled={enviando}>
-          {enviando ? "Entrando…" : "Entrar"}
+        <button className={styles.botao} type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Entrando…" : "Entrar"}
         </button>
       </form>
     </main>
