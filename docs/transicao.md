@@ -124,7 +124,7 @@ Monitor da TI: `GET /api/v1/health` responde `200 {"status":"ok"}` com o banco d
 Pontos de atenção:
 
 - **Mesmo domínio** é o que dispensa CORS e cookies de terceiros. Não sirva o Next em outro host.
-- **Proxy na frente:** configure `trusted proxies` para o `Secure` e o IP real funcionarem (a regra do legado, `trusted_proxies` vazio por padrão, continua sendo o ponto de partida).
+- **Proxy na frente:** liste o endereço do proxy em `INTRANET_TRUSTED_PROXIES` (`api/.env`; IPs ou faixas CIDR, separados por vírgula) para o `Secure` e o IP real funcionarem. Vazio é o padrão e significa "não confiar em ninguém": vale o endereço da conexão e o `X-Forwarded-For` é ignorado, então um cliente não consegue forjar IP para escapar do limitador de login. **Sem configurar, atrás do proxy todos aparecem com o IP dele e o limite de 30 falhas por IP bloqueia a intranet inteira.** Evite o curinga `*`, a não ser que a API só seja alcançável pelo proxy. Depois de mudar o `.env` em produção, rode `php artisan config:cache`. Testes: `tests/Feature/Api/TrustedProxiesTest.php`.
 - **Teto absoluto de sessão (12 h):** o Laravel só tem ociosidade; o teto é um middleware próprio (Fase 1).
 - **Next:** `output: 'export'`, `basePath: '/novo'`, `trailingSlash: true`; páginas só de cliente; `fetch` com `credentials: 'include'`; antes do primeiro POST, `GET /sanctum/csrf-cookie`.
 
