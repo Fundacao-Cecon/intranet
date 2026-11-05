@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\TrustedProxies;
+
 /*
 | Regras próprias da Intranet FCECON. Os valores padrão repetem os do legado (config/config.php),
 | para a troca de sistema não mudar o comportamento para quem usa.
@@ -19,6 +21,10 @@ return [
     // um mesmo login acumula falhas demais (somando todos os IPs) na janela.
     'login_alert_attempts' => (int) env('INTRANET_LOGIN_ALERT_ATTEMPTS', 20),
     'login_alert_window_minutes' => (int) env('INTRANET_LOGIN_ALERT_WINDOW_MINUTES', 60),
+
+    // Proxies em que a API confia para saber o IP do cliente (X-Forwarded-For). Vazio = em nenhum.
+    // Lido aqui, e não em bootstrap/app.php, porque env() fora de config/ vira null com config:cache.
+    'trusted_proxies' => TrustedProxies::parse(env('INTRANET_TRUSTED_PROXIES')),
 
     // Sessão: tempo máximo sem uso e tempo máximo desde o login, mesmo com uso contínuo (segundos).
     'session_idle' => (int) env('INTRANET_SESSION_IDLE', 28800),      // 8 h

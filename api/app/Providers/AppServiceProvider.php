@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Em qual proxy confiar para o IP do cliente (X-Forwarded-For). Vazio = em nenhum.
+        TrustProxies::at(config('intranet.trusted_proxies'));
     }
 }
