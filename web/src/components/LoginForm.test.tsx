@@ -194,6 +194,72 @@ describe("LoginForm", () => {
       expect(screen.getByLabelText("Usuário")).not.toHaveAttribute("aria-invalid", "true");
     });
 
+    test("um único alerta anuncia todos os erros de preenchimento de uma vez", async () => {
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Entrar" }));
+
+      const alerta = await screen.findByRole("alert");
+      expect(alerta).toHaveTextContent("Informe o usuário.");
+      expect(alerta).toHaveTextContent("Informe a senha.");
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+    });
+
+    test("o resumo acompanha as correções e some quando tudo está certo", async () => {
+      entrar.mockResolvedValue(ana);
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+      const u = userEvent.setup();
+      await u.click(screen.getByRole("button", { name: "Entrar" }));
+      await screen.findByRole("alert");
+
+      await u.type(screen.getByLabelText("Usuário"), "ana");
+      await waitFor(() => expect(screen.getByRole("alert")).not.toHaveTextContent("Informe o usuário."));
+      expect(screen.getByRole("alert")).toHaveTextContent("Informe a senha.");
+
+      await u.type(screen.getByLabelText("Senha"), "x");
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    });
+
+    test("o erro antigo da API não fica na tela quando o reenvio tem campo inválido", async () => {
+      entrar.mockRejectedValue(new ApiError(422, "Usuário ou senha incorretos."));
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+      await preencher("ana", "errada");
+      expect(await screen.findByRole("alert")).toHaveTextContent("Usuário ou senha incorretos.");
+
+      // a senha foi limpa; reenviar sem digitar não pode misturar as duas mensagens
+      await userEvent.setup().click(screen.getByRole("button", { name: "Entrar" }));
+
+      await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Informe a senha."));
+      expect(screen.getByRole("alert")).not.toHaveTextContent("Usuário ou senha incorretos.");
+      expect(entrar).toHaveBeenCalledTimes(1);
+    });
+
+    test("depois de corrigir os campos, o erro antigo da API não reaparece", async () => {
+      entrar.mockRejectedValue(new ApiError(422, "Usuário ou senha incorretos."));
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+      await preencher("ana", "errada");
+      await screen.findByText("Usuário ou senha incorretos.");
+
+      const u = userEvent.setup();
+      await u.click(screen.getByRole("button", { name: "Entrar" })); // reenvio inválido: senha vazia
+      await screen.findByText(/Corrija os campos/);
+      await u.type(screen.getByLabelText("Senha"), "outra"); // corrigiu, ainda não reenviou
+
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+      expect(screen.queryByText("Usuário ou senha incorretos.")).not.toBeInTheDocument();
+    });
+
+    test("o bloqueio (429) também some quando o reenvio tem campo inválido", async () => {
+      entrar.mockRejectedValue(new ApiError(429, "Muitas tentativas.", undefined, 600));
+      render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
+      await preencher("ana", "x");
+      expect(await screen.findByRole("alert")).toHaveTextContent("Muitas tentativas.");
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Entrar" }));
+
+      await waitFor(() => expect(screen.getByRole("alert")).not.toHaveTextContent("Muitas tentativas."));
+    });
+
     test("o formulário usa a validação própria, não a do navegador (noValidate)", () => {
       render(<LoginForm entrar={entrar} aoEntrar={aoEntrar} />);
 

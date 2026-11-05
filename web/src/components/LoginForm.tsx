@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 
 import { ApiError, type Usuario } from "@/lib/api";
 import { type DadosLogin, esquemaLogin } from "@/lib/validacao";
+import { CampoTexto } from "./CampoTexto";
 import styles from "./Intranet.module.css";
 
 type Props = {
@@ -31,7 +32,7 @@ function mensagemDeErro(erro: unknown): string {
 
 export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
   // Erro que veio da API (senha errada, bloqueio, rede). Os erros de preenchimento são do RHF.
-  const [erro, setErro] = useState<string | null>(null);
+  const [erroDaApi, setErroDaApi] = useState<string | null>(null);
 
   const {
     register,
@@ -45,21 +46,27 @@ export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
   });
 
   async function enviar({ usuario, senha }: DadosLogin) {
-    setErro(null);
+    setErroDaApi(null);
     try {
       aoEntrar(await entrar(usuario, senha));
     } catch (e) {
-      setErro(mensagemDeErro(e));
+      setErroDaApi(mensagemDeErro(e));
       resetField("senha"); // a senha digitada não fica na tela nem no estado
       setFocus("senha");
     }
   }
 
+  // Um único alerta no topo: o resumo dos erros de preenchimento (anunciados todos de uma vez)
+  // ou, se não houver nenhum, o erro da API. Nunca os dois: o erro antigo da API não descreve
+  // mais a tentativa atual quando o reenvio nem chegou a sair.
+  const mensagensDeCampo = [errors.usuario?.message, errors.senha?.message].filter(Boolean);
+  const alerta = mensagensDeCampo.length > 0 ? `Corrija os campos: ${mensagensDeCampo.join(" ")}` : erroDaApi;
+
   return (
     <main className={styles.centro}>
       <form
         className={styles.cartao}
-        onSubmit={handleSubmit(enviar)}
+        onSubmit={handleSubmit(enviar, () => setErroDaApi(null))}
         aria-labelledby="titulo-login"
         noValidate
       >
@@ -73,51 +80,31 @@ export function LoginForm({ entrar, aoEntrar, aviso }: Props) {
             {aviso}
           </p>
         )}
-        {erro && (
+        {alerta && (
           <p role="alert" className={styles.erro}>
-            {erro}
+            {alerta}
           </p>
         )}
 
-        <label className={styles.rotulo} htmlFor="usuario">
-          Usuário
-        </label>
-        <input
+        <CampoTexto
           id="usuario"
-          className={styles.campo}
+          rotulo="Usuário"
           type="text"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          aria-required="true"
-          aria-invalid={errors.usuario ? true : undefined}
-          aria-describedby={errors.usuario ? "usuario-erro" : undefined}
+          erro={errors.usuario?.message}
           {...register("usuario")}
         />
-        {errors.usuario && (
-          <p id="usuario-erro" className={styles.erroCampo}>
-            {errors.usuario.message}
-          </p>
-        )}
 
-        <label className={styles.rotulo} htmlFor="senha">
-          Senha
-        </label>
-        <input
+        <CampoTexto
           id="senha"
-          className={styles.campo}
+          rotulo="Senha"
           type="password"
           autoComplete="current-password"
-          aria-required="true"
-          aria-invalid={errors.senha ? true : undefined}
-          aria-describedby={errors.senha ? "senha-erro" : undefined}
+          erro={errors.senha?.message}
           {...register("senha")}
         />
-        {errors.senha && (
-          <p id="senha-erro" className={styles.erroCampo}>
-            {errors.senha.message}
-          </p>
-        )}
 
         <button className={styles.botao} type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Entrando…" : "Entrar"}
