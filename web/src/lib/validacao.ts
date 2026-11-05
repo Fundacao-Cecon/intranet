@@ -22,3 +22,32 @@ export const esquemaLogin = z.object({
 });
 
 export type DadosLogin = z.infer<typeof esquemaLogin>;
+
+/**
+ * Troca de senha. Repete só o que dá resposta imediata (tamanho, confirmação, diferente da atual);
+ * senha comum, sequência e repetição são decididas pela API (SenhaForte). Nenhuma senha é aparada.
+ */
+export const esquemaTrocaSenha = z
+  .object({
+    senhaAtual: z.string({ error: "Informe a senha atual." }).check(z.minLength(1, "Informe a senha atual.")),
+    novaSenha: z
+      .string({ error: "Informe a nova senha." })
+      .check(
+        z.minLength(1, "Informe a nova senha."),
+        z.refine((v) => v === "" || [...v].length >= 10, "A nova senha precisa ter pelo menos 10 caracteres."),
+        z.refine((v) => [...v].length <= 128, "A nova senha pode ter no máximo 128 caracteres."),
+      ),
+    confirmacao: z.string({ error: "Confirme a nova senha." }).check(z.minLength(1, "Confirme a nova senha.")),
+  })
+  .check(
+    z.refine((d) => d.confirmacao === "" || d.novaSenha === d.confirmacao, {
+      error: "As senhas não conferem.",
+      path: ["confirmacao"],
+    }),
+    z.refine((d) => d.novaSenha === "" || d.novaSenha !== d.senhaAtual, {
+      error: "A nova senha precisa ser diferente da atual.",
+      path: ["novaSenha"],
+    }),
+  );
+
+export type DadosTrocaSenha = z.infer<typeof esquemaTrocaSenha>;

@@ -37,6 +37,7 @@ const PARES: [string, string][] = [
   ["acao-texto", "acao-hover"], // botão com o mouse em cima
   ["erro-texto", "erro-fundo"],
   ["aviso-texto", "aviso-fundo"],
+  ["ok-texto", "ok-fundo"], // aviso de sucesso
   ["erro-texto", "superficie"], // mensagem sem o fundo próprio
 ];
 

@@ -8,13 +8,17 @@
 
 export type Usuario = { id: number; username: string; role: string };
 
-/** Erro de uma resposta da API. `retryAfter` (segundos) vem do cabeçalho Retry-After do 429. */
+/**
+ * Erro de uma resposta da API. `retryAfter` (segundos) vem do cabeçalho Retry-After do 429;
+ * `erros` traz as mensagens por campo de um 422 de validação (por exemplo, `password: [...]`).
+ */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
     readonly code?: string,
     readonly retryAfter?: number,
+    readonly erros?: Record<string, string[]>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -36,9 +40,11 @@ async function pedirCookieCsrf(): Promise<void> {
   });
 }
 
-async function lerCorpo(resposta: Response): Promise<{ message?: string; code?: string } | undefined> {
+type CorpoDeErro = { message?: string; code?: string; errors?: Record<string, string[]> };
+
+async function lerCorpo(resposta: Response): Promise<CorpoDeErro | undefined> {
   try {
-    return (await resposta.json()) as { message?: string; code?: string };
+    return (await resposta.json()) as CorpoDeErro;
   } catch {
     return undefined; // 204, ou HTML de um proxy (502): o status basta
   }
@@ -80,6 +86,7 @@ async function chamar<T>(
         corpo?.message ?? `Erro ${resposta.status}`,
         corpo?.code,
         Number.isFinite(espera) && espera > 0 ? espera : undefined,
+        corpo?.errors,
       );
     }
 
@@ -98,6 +105,11 @@ export async function login(username: string, password: string): Promise<Usuario
 
 export async function logout(): Promise<void> {
   await chamar("POST", "/api/v1/auth/logout");
+}
+
+/** Troca a própria senha. Resolve em 204; um 422 traz `erros` por campo (current_password, password). */
+export async function trocarSenha(senhaAtual: string, novaSenha: string): Promise<void> {
+  await chamar("POST", "/api/v1/auth/password", { corpo: { current_password: senhaAtual, password: novaSenha } });
 }
 
 /** Quem está logado. 401 não é erro: significa visitante e devolve null. */

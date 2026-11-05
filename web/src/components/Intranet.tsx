@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ApiError, login, logout, me, type Usuario } from "@/lib/api";
+import { ApiError, login, logout, me, trocarSenha, type Usuario } from "@/lib/api";
 import { LoginForm } from "./LoginForm";
+import { TrocaSenhaForm } from "./TrocaSenhaForm";
 import styles from "./Intranet.module.css";
 
 type Estado =
@@ -21,6 +22,8 @@ const PERFIS: Record<string, string> = { admin: "Administrador", user: "Usuário
 export function Intranet({ avisoInicial }: { avisoInicial?: string }) {
   const [estado, setEstado] = useState<Estado>({ tipo: "carregando" });
   const [erroSair, setErroSair] = useState(false);
+  const [tela, setTela] = useState<"painel" | "senha">("painel");
+  const [aviso, setAviso] = useState(avisoInicial);
 
   const consultar = useCallback(async () => {
     setEstado({ tipo: "carregando" });
@@ -42,6 +45,7 @@ export function Intranet({ avisoInicial }: { avisoInicial?: string }) {
     setErroSair(false);
     try {
       await logout();
+      setTela("painel");
       setEstado({ tipo: "visitante" });
     } catch (e) {
       // Sessão já encerrada pelo servidor (401) conta como saída; qualquer outra falha não.
@@ -78,7 +82,21 @@ export function Intranet({ avisoInicial }: { avisoInicial?: string }) {
       <LoginForm
         entrar={login}
         aoEntrar={(usuario) => setEstado({ tipo: "logado", usuario })}
-        aviso={avisoInicial}
+        aviso={aviso}
+      />
+    );
+  }
+
+  if (tela === "senha") {
+    return (
+      <TrocaSenhaForm
+        trocar={trocarSenha}
+        aoVoltar={() => setTela("painel")}
+        aoExpirar={() => {
+          setAviso("Sua sessão expirou. Entre novamente.");
+          setTela("painel");
+          setEstado({ tipo: "visitante" });
+        }}
       />
     );
   }
@@ -95,7 +113,10 @@ export function Intranet({ avisoInicial }: { avisoInicial?: string }) {
             Não foi possível sair. Tente de novo.
           </p>
         )}
-        <button className={styles.botao} type="button" onClick={() => void sair()}>
+        <button className={styles.botao} type="button" onClick={() => setTela("senha")}>
+          Trocar senha
+        </button>
+        <button className={styles.secundario} type="button" onClick={() => void sair()}>
           Sair
         </button>
       </div>

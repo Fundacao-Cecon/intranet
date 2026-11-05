@@ -13,12 +13,12 @@ Retrato do quadro em **05/11/2026** (Sprint 1 revisada e aceita; Sprint 2 a inic
 
 | Coluna | Tarefas | Pontos |
 |---|--:|--:|
-| Backlog do produto | 56 | 217 |
-| Backlog da sprint | 1 | 1 |
+| Backlog do produto | 53 | 211 |
+| Backlog da sprint | 0 | 0 |
 | Em andamento | 0 | 0 |
 | Em revisão | 3 | 7 |
-| Concluído | 14 | 41 |
-| **Total** | **74** | **266** |
+| Concluído | 19 | 50 |
+| **Total** | **75** | **268** |
 
 ## Sprints
 
@@ -44,12 +44,9 @@ Os pontos são hipótese de planejamento: recalibre com a velocidade real depois
 
 | Id | Sprint | Épico | Tarefa | Pts | Tipo e nota |
 |---|:-:|---|---|--:|---|
-| T022 | S2 | E1 Fundação e login | Trocar a senha derruba as outras sessões | 2 | segurança |
 | T023 | S2 | E1 Fundação e login | Senha temporária: must_change_password e tela de troca | 3 | segurança |
-| T024 | S2 | E1 Fundação e login | Política de senha: 10+ caracteres e lista de proibidas | 2 | segurança |
 | T025 | S2 | E1 Fundação e login | Login sem diferença de caixa (índice único em lower(username)) | 2 | segurança |
 | T026 | S2 | E1 Fundação e login | Portar os testes da Fase 1 da matriz (62), incluindo os 7 todo | 5 | teste |
-| T027b | S2 | E1 Fundação e login | Next: tela de troca de senha (depende de T022 a T024 na API) | 2 | feature — separado do T027 em 05/11: a API ainda não tem a troca de senha |
 | T028 | S2 | E1 Fundação e login | Release 0.3.0 (changelog e tag) | 1 | release |
 | T029 | S2 | E1 Fundação e login | Aplicar o imagotipo e o favicon no login e no layout do Next | 1 | feature — docs/design-system/marca.md; aprovação da comunicação pendente |
 | T030 | S3 | E2 Leitura e busca | Portar FileStorage (resolve, safeItem, cleanName) com testes de travessia, UTF-8 e caixa | 5 | segurança |
@@ -105,7 +102,8 @@ Os pontos são hipótese de planejamento: recalibre com a velocidade real depois
 
 | Id | Sprint | Épico | Tarefa | Pts | Tipo e nota |
 |---|:-:|---|---|--:|---|
-| T006 | S0 | E0 Documentação e 0.2.1 | Abrir o PR da 0.2.1 e publicar a tag v0.2.1 | 1 | release — Envolve push: precisa do OK |
+
+_Vazia._
 
 ## Em andamento
 
@@ -117,7 +115,7 @@ _Vazia._
 |---|:-:|---|---|--:|---|
 | T004 | S0 | E0 Documentação e 0.2.1 | Escrever roadmap, transição, Scrum e kanban | 3 | docs |
 | T005 | S0 | E0 Documentação e 0.2.1 | Ajustar ADRs 0003, 0004 e 0007, README, pendências e estratégia de testes | 2 | docs |
-| T021 | S2 | E1 Fundação e login | Alerta por usuário (LOGIN_ALERTA) sem bloquear o dono da conta | 2 | segurança — LOGIN_ALERTA quando um login acumula 20 falhas em 60 min (todos os IPs somados); uma vez por janela, sem bloquear o dono; label sem o texto digitado; 10 testes Pest, 5 mutações detectadas |
+| T027b | S2 | E1 Fundação e login | Next: tela de troca de senha (depende de T022 a T024 na API) | 2 | feature — Tela de troca de senha: TrocaSenhaForm (3 campos, dica, resumo único de erros), cliente trocarSenha, esquema Zod e botão no painel; erros da API por campo (senha atual, política); 401 volta ao login com aviso; 126 testes, 12 mutações detectadas; conferido no navegador contra a API real, incluindo a queda de uma segunda sessão |
 
 ## Concluído
 
@@ -126,6 +124,7 @@ _Vazia._
 | T001 | S0 | E0 Documentação e 0.2.1 | Corrigir caixa e UTF-8 nas regras de pasta (0.2.1) | 3 | segurança — Commit 3e9d9a4; 5 testes novos |
 | T002 | S0 | E0 Documentação e 0.2.1 | Avaliar a stack e registrar a ADR 0008 | 3 | docs — Laravel + Next.js em fatias |
 | T003 | S0 | E0 Documentação e 0.2.1 | Gerar a matriz de paridade dos testes | 2 | docs — 189 testes PHP e 44 declarações JS |
+| T006 | S0 | E0 Documentação e 0.2.1 | Abrir o PR da 0.2.1 e publicar a tag v0.2.1 | 1 | release — Tag v0.2.1 existe e o main tem o commit "hotfix: 0.2.1" (conferido em 05/11/2026) |
 | T010 | S1 | E1 Fundação e login | Instalar Composer e Node 24 LTS | 1 | infra — Node 24.20 já estava instalado; Composer 2.10.3 (SHA-256 conferido) em D:/php/tools |
 | T011 | S1 | E1 Fundação e login | Criar api/ (Laravel 13) e web/ (Next 16, exportação estática) | 3 | infra — api/ Laravel 13.39 e web/ Next 16.4.3 (export estático, basePath /novo); build e testes padrão verdes |
 | T012 | S1 | E1 Fundação e login | CI por pasta: Pest, Larastan e Pint na API; Vitest e build no front | 3 | infra — api.yml (Pest 8.3/8.4, Pint, Larastan 6, audit), web.yml (ESLint, tsc, Vitest, build, audit), legado com filtro de pasta; tudo verde local; workflows ainda não rodaram no GitHub |
@@ -136,4 +135,8 @@ _Vazia._
 | T017 | S1 | E1 Fundação e login | Dependabot ou Renovate para api/ e web/ | 1 | infra — .github/dependabot.yml: composer /api, npm /web e /tests/js, github-actions; semanal/mensal para develop |
 | T018 | S1 | E1 Fundação e login | GET /api/v1/health e logs de aplicação em JSON | 2 | infra — GET /api/v1/health (200 ok / 503 degraded, sem dados sensíveis) e canal de log json diário; 5 testes |
 | T020 | S2 | E1 Fundação e login | Limitador de login em camadas (usuário+IP e IP) com hash fictício | 5 | segurança — Serviço LoginThrottle: reserva atômica por INSERT condicional (usuário+IP 5/15 min, IP 30/15 min), 429 com Retry-After, LOGIN_BLOQUEADO uma vez por janela, login certo zera o par; 13 testes Pest, 4 mutações detectadas. **Antes de expor a API atrás de proxy:** configurar proxies confiáveis (senão todos aparecem com o IP do proxy e o limite por IP bloqueia todos) |
+| T021 | S2 | E1 Fundação e login | Alerta por usuário (LOGIN_ALERTA) sem bloquear o dono da conta | 2 | segurança — LOGIN_ALERTA quando um login acumula 20 falhas em 60 min (todos os IPs somados); uma vez por janela, sem bloquear o dono; label sem o texto digitado; 10 testes Pest, 5 mutações detectadas |
 | T027 | S2 | E1 Fundação e login | Next: login, sessão e saída, com acessibilidade e contraste | 3 | feature — Intranet, LoginForm e cliente da API (CSRF Sanctum, nova tentativa no 419); 33 testes novos + 27 de contraste AA nos dois temas; 6 mutações detectadas; conferido no navegador contra a API real (422 → 200, sessão persiste ao recarregar, saída encerra no servidor). Sem imagotipo (T029). Troca de senha: T027b |
+| T022 | S2 | E1 Fundação e login | Trocar a senha derruba as outras sessões | 2 | segurança — As outras sessões caem sozinhas (o SessionGuard deixa o HMAC do hash na sessão e o AuthenticateSession do Sanctum recusa o hash antigo); a atual continua. Provado com uma segunda sessão real. Mutar a config do Sanctum quebra 2 testes; PR #12 |
+| T024 | S2 | E1 Fundação e login | Política de senha: 10+ caracteres e lista de proibidas | 2 | segurança — Regra SenhaForte: 10 a 128 caracteres (caracteres, não bytes), recusa igual ao login, senha comum, sequência (também do avesso) e repetição; todas as mensagens de uma vez; POST /api/v1/auth/password com o limitador do login; PR #12 |
+| T027c | S2 | E1 Fundação e login | Formulários com React Hook Form e Zod (zod/mini) e componente CampoTexto | 2 | feature — Adotado por recomendação de revisão; +26,9 KB gzip no JS do login (zod completo seria +41,4); resumo único de erros acessível; PR #10
